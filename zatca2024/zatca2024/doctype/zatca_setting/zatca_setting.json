@@ -18,6 +18,9 @@
   "attach_e_invoice_send_status_with_invoice",
   "sdk_root",
   "pih",
+  "column_break_ccyz",
+  "section_break_zwdv",
+  "integration_setting",
   "urls__api_endpoints_section",
   "sandbox_url",
   "simulation_url",
@@ -198,12 +201,26 @@
    "fieldtype": "Link",
    "label": "Company",
    "options": "Company"
+  },
+  {
+   "fieldname": "column_break_ccyz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_zwdv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "integration_setting",
+   "fieldtype": "Table",
+   "label": "Integration Setting",
+   "options": "Integration Setting"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-04-17 14:20:47.989970",
+ "modified": "2024-05-07 12:30:16.604292",
  "modified_by": "Administrator",
  "module": "Zatca2024",
  "name": "Zatca setting",

@@ -36,46 +36,46 @@ def get_auth_headers(certificate=None, secret=None):
     return {}
 
 def _execute_in_shell(cmd, verbose=False, low_priority=False, check_exit_code=False):
-                # using Popen instead of os.system - as recommended by python docs
-                import shlex
-                import tempfile
-                from subprocess import Popen
-                env_variables = {"MY_VARIABLE": "some_value", "ANOTHER_VARIABLE": "another_value"}
-                if isinstance(cmd, list):
-                    # ensure it's properly escaped; only a single string argument executes via shell
-                    cmd = shlex.join(cmd)
-                    # process = subprocess.Popen(command_sign_invoice, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env_variables)               
-                with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
-                    kwargs = {"shell": True, "stdout": stdout, "stderr": stderr}
-                    if low_priority:
-                        kwargs["preexec_fn"] = lambda: os.nice(10)
-                    p = Popen(cmd, **kwargs)
-                    exit_code = p.wait()
-                    stdout.seek(0)
-                    out = stdout.read()
-                    stderr.seek(0)
-                    err = stderr.read()
-                failed = check_exit_code and exit_code
+    # using Popen instead of os.system - as recommended by python docs
+    import shlex
+    import tempfile
+    from subprocess import Popen
+    env_variables = {"MY_VARIABLE": "some_value", "ANOTHER_VARIABLE": "another_value"}
+    if isinstance(cmd, list):
+        # ensure it's properly escaped; only a single string argument executes via shell
+        cmd = shlex.join(cmd)
+        # process = subprocess.Popen(command_sign_invoice, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env_variables)               
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        kwargs = {"shell": True, "stdout": stdout, "stderr": stderr}
+        if low_priority:
+            kwargs["preexec_fn"] = lambda: os.nice(10)
+        p = Popen(cmd, **kwargs)
+        exit_code = p.wait()
+        stdout.seek(0)
+        out = stdout.read()
+        stderr.seek(0)
+        err = stderr.read()
+    failed = check_exit_code and exit_code
 
-                if verbose or failed:
-                    if err:
-                        frappe.msgprint(err)
-                    if out:
-                        frappe.msgprint(out)
-                if failed:
-                    raise Exception("Command failed")
-                return err, out
+    if verbose or failed:
+        if err:
+            frappe.msgprint(err)
+        if out:
+            frappe.msgprint(out)
+    if failed:
+        raise Exception("Command failed")
+    return err, out
 
 def get_latest_generated_csr_file(folder_path='.'):
-            try:
-                files = [f for f in os.listdir(folder_path) if f.startswith("generated-csr") and os.path.isfile(os.path.join(folder_path, f))]
-                if not files:
-                    return None
-                latest_file = max(files, key=os.path.getmtime)
-                # print(latest_file)
-                return os.path.join(folder_path, latest_file)
-            except Exception as e:
-                    frappe.throw(" error in get_latest_generated_csr_file: "+ str(e) )
+    try:
+        files = [f for f in os.listdir(folder_path) if f.startswith("generated-csr") and os.path.isfile(os.path.join(folder_path, f))]
+        if not files:
+            return None
+        latest_file = max(files, key=os.path.getmtime)
+        # print(latest_file)
+        return os.path.join(folder_path, latest_file)
+    except Exception as e:
+            frappe.throw(" error in get_latest_generated_csr_file: "+ str(e) )
 
 
 @frappe.whitelist(allow_guest=True)
@@ -94,7 +94,7 @@ def generate_csr():
             command_generate_csr = path_string + f'fatoora -sim -csr -csrConfig {csr_config_file} -privateKey {private_key_file} -generatedCsr {generated_csr_file} -pem'
         else:
             command_generate_csr = path_string + f'fatoora -csr -csrConfig {csr_config_file} -privateKey {private_key_file} -generatedCsr {generated_csr_file} -pem'
-
+        print(command_generate_csr, "command_generate_csr")
         try:
             err, out = _execute_in_shell(command_generate_csr)
             # print(out)
@@ -117,133 +117,135 @@ def generate_csr():
 
 
 def get_API_url(base_url):
-                try:
-                    settings = frappe.get_doc('Zatca setting')
-                    if settings.select == "Sandbox":
-                        url = settings.sandbox_url + base_url
-                    elif settings.select == "Simulation":
-                        url = settings.simulation_url + base_url
-                    else:
-                        url = settings.production_url + base_url
-                    return url 
-                except Exception as e:
-                    frappe.throw(" getting url failed"+ str(e) ) 
+    try:
+        settings = frappe.get_doc('Zatca setting')
+        print(settings.simulation_url, "inside get api url")
+        if settings.select == "Sandbox":
+            url = settings.sandbox_url + base_url
+        elif settings.select == "Simulation":
+            url = settings.simulation_url + base_url
+        else:
+            url = settings.production_url + base_url
+        return url 
+    except Exception as e:
+        frappe.throw(" getting url failed"+ str(e) ) 
 
 def update_json_data_csid(existing_data, company_name, csid):
-                    try:
-                        company_exists = False
-                        for entry in existing_data["data"]:
-                            if entry["company"] == company_name:
-                                
-                                entry["csid"] = csid
-                                company_exists = True
-                                break
-                        if not company_exists:
-                            existing_data["data"].append({
-                                "company": company_name,
-                                "csid": csid
-                            })
+    try:
+        company_exists = False
+        for entry in existing_data["data"]:
+            if entry["company"] == company_name:
+                
+                entry["csid"] = csid
+                company_exists = True
+                break
+        if not company_exists:
+            existing_data["data"].append({
+                "company": company_name,
+                "csid": csid
+            })
 
-                        return existing_data
-                    except Exception as e:
-                            frappe.throw("error json data of request id: " + str(e))
+        return existing_data
+    except Exception as e:
+            frappe.throw("error json data of request id: " + str(e))
 
 def update_json_data_request_id(existing_data, company_name, request_id):
-                    try:
-                        company_exists = False
-                        for entry in existing_data["data"]:
-                            if entry["company"] == company_name:
-                                entry["request_id"] = request_id
-                                company_exists = True
-                                break
-                        if not company_exists:
-                            existing_data["data"].append({
-                                "company": company_name,
-                                "request_id": request_id
-                            })
+    try:
+        company_exists = False
+        for entry in existing_data["data"]:
+            if entry["company"] == company_name:
+                entry["request_id"] = request_id
+                company_exists = True
+                break
+        if not company_exists:
+            existing_data["data"].append({
+                "company": company_name,
+                "request_id": request_id
+            })
 
-                        return existing_data
-                    except Exception as e:
-                        frappe.throw("error json data of request id: " + str(e))
+        return existing_data
+    except Exception as e:
+        frappe.throw("error json data of request id: " + str(e))
 
 def update_json_data_production_csid(existing_data, company_name, production_csid):
-                    try:
-                        company_exists = False
-                        for entry in existing_data["companies"]:
-                            if entry["company"] == company_name:
-                                entry["production_csid"] = production_csid
-                                company_exists = True
-                                break
-                        if not company_exists:
-                            existing_data["companies"].append({
-                                "company": company_name,
-                                "production_csid": production_csid
-                            })
-                        return existing_data
-                    except Exception as e:
-                                frappe.throw("error json data of production csid: " + str(e))
+    try:
+        company_exists = False
+        for entry in existing_data["companies"]:
+            if entry["company"] == company_name:
+                entry["production_csid"] = production_csid
+                company_exists = True
+                break
+        if not company_exists:
+            existing_data["companies"].append({
+                "company": company_name,
+                "production_csid": production_csid
+            })
+        return existing_data
+    except Exception as e:
+                frappe.throw("error json data of production csid: " + str(e))
                                 
 @frappe.whitelist(allow_guest=True)
 def create_CSID(): 
-                try:
-                    # set_cert_path()
-                    settings=frappe.get_doc('Zatca setting')
-                    company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
-                    with open(get_latest_generated_csr_file(), "r") as f:
-                        csr_contents = f.read()
-                    payload = json.dumps({
-                    "csr": csr_contents
-                    })
-                    headers = {
-                    'accept': 'application/json',
-                    'OTP': settings.otp,
-                    'Accept-Version': 'V2',
-                    'Content-Type': 'application/json',
-                    'Cookie': 'TS0106293e=0132a679c07382ce7821148af16b99da546c13ce1dcddbef0e19802eb470e539a4d39d5ef63d5c8280b48c529f321e8b0173890e4f'
-                    }
-                    # frappe.throw(csr_contents)
-                    response = requests.request("POST", url=get_API_url(base_url="compliance"), headers=headers, data=payload)
-                    # response.status_code = 400
-                    if response.status_code == 400:
-                        frappe.throw("Error: " + "OTP is not valid", response.text)
-                    if response.status_code != 200:
-                        frappe.throw("Error: " + "Error in Certificate or OTP: " + "<br> <br>" + response.text)
-                    
-                    frappe.msgprint(str(response.content))
-                    # frappe.msgprint("Test.")
-                    data=json.loads(response.text)
-                    # compliance_cert =get_auth_headers(data["binarySecurityToken"],data["secret"])
-                    concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-                    encoded_value = base64.b64encode(concatenated_value.encode()).decode()
-                    with open(f"{company_name}.pem", 'w') as file:   #attaching X509 certificate
-                        file.write(base64.b64decode(data["binarySecurityToken"]).decode('utf-8'))
-                    basic_auth = settings.get("basic_auth", "{}")
-                    frappe.msgprint(str(basic_auth))
-                    try:
-                        basic_auth_data = json.loads(basic_auth)
-                    except json.JSONDecodeError:
-                        basic_auth_data = {"data": []}
-                    except:
-                        basic_auth_data = {"data": []}
-                    updated_basic_auth_data = update_json_data_csid(basic_auth_data, company_name, encoded_value)
-                    print(updated_basic_auth_data, "chaeck Company name \n\n\n")
-                    settings.set("basic_auth", json.dumps(updated_basic_auth_data))
-                    compliance_request_id = settings.get("compliance_request_id", "{}")
-                    try:
-                        compliance_request_id_data = json.loads(compliance_request_id)
-                        # Ensure that compliance_request_id_data is a dictionary with a "data" key.
-                        if not isinstance(compliance_request_id_data, dict) or "data" not in compliance_request_id_data:
-                            raise ValueError("Invalid format for compliance_request_id_data")
-                    except (json.JSONDecodeError, ValueError):
-                        compliance_request_id_data = {"data": []}
-                    except:
-                        compliance_request_id_data = {"data": []}
+    try:
+        # set_cert_path()
+        settings=frappe.get_doc('Zatca setting')
+        company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
+        with open(get_latest_generated_csr_file(), "r") as f:
+            csr_contents = f.read()
+        payload = json.dumps({
+            "csr": csr_contents
+        })
+        headers = {
+        'accept': 'application/json',
+        'OTP': settings.otp,
+        'Accept-Version': 'V2',
+        'Content-Type': 'application/json',
+        'Cookie': 'TS0106293e=0132a679c07382ce7821148af16b99da546c13ce1dcddbef0e19802eb470e539a4d39d5ef63d5c8280b48c529f321e8b0173890e4f'
+        }
+        # frappe.throw(csr_contents)
+        response = requests.request("POST", url=get_API_url(base_url="compliance"), headers=headers, data=payload)
+        # response.status_code = 400
+        print(payload, response, "concatenated_value \n\n\n")
+        if response.status_code == 400:
+            frappe.throw("Error: " + "OTP is not valid", response.text)
+        if response.status_code != 200:
+            frappe.throw("Error: " + "Error in Certificate or OTP: " + "<br> <br>" + response.text)
+        
+        frappe.msgprint(str(response.content))
+        # frappe.msgprint("Test.")
+        data=json.loads(response.text)
+        # compliance_cert =get_auth_headers(data["binarySecurityToken"],data["secret"])
+        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
+        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+        with open(f"{company_name}.pem", 'w') as file:   #attaching X509 certificate
+            file.write(base64.b64decode(data["binarySecurityToken"]).decode('utf-8'))
+        basic_auth = settings.get("basic_auth", "{}")
+        frappe.msgprint(str(basic_auth))
+        try:
+            basic_auth_data = json.loads(basic_auth)
+        except json.JSONDecodeError:
+            basic_auth_data = {"data": []}
+        except:
+            basic_auth_data = {"data": []}
+        updated_basic_auth_data = update_json_data_csid(basic_auth_data, company_name, encoded_value)
+        print(updated_basic_auth_data, "chaeck Company name \n\n\n")
+        settings.set("basic_auth", json.dumps(updated_basic_auth_data))
+        compliance_request_id = settings.get("compliance_request_id", "{}")
+        try:
+            compliance_request_id_data = json.loads(compliance_request_id)
+            # Ensure that compliance_request_id_data is a dictionary with a "data" key.
+            if not isinstance(compliance_request_id_data, dict) or "data" not in compliance_request_id_data:
+                raise ValueError("Invalid format for compliance_request_id_data")
+        except (json.JSONDecodeError, ValueError):
+            compliance_request_id_data = {"data": []}
+        except:
+            compliance_request_id_data = {"data": []}
 
-                    updated_compliance_request_id_data = update_json_data_request_id(compliance_request_id_data, company_name, data["requestID"])
-                    settings.set("compliance_request_id", json.dumps(updated_compliance_request_id_data))
-                    settings.save(ignore_permissions=True)
-                except Exception as e:
-                            frappe.throw("error in csid formation: " + str(e))
+        updated_compliance_request_id_data = update_json_data_request_id(compliance_request_id_data, company_name, data["requestID"])
+        settings.set("compliance_request_id", json.dumps(updated_compliance_request_id_data))
+        settings.save(ignore_permissions=True)
+    except Exception as e:
+                frappe.throw("error in csid formation: " + str(e))
      
 def sign_invoice():
     try:
@@ -284,344 +286,344 @@ def sign_invoice():
         frappe.throw("An error occurred sign invoice : " + str(e))
 
 def generate_qr_code(signed_xmlfile_name,sales_invoice_doc,path_string):
-                try:
-                    with open(signed_xmlfile_name, 'r') as file:
-                        file_content = file.read()
-                    command_generate_qr =path_string  + f'fatoora -qr -invoice {signed_xmlfile_name}'
-                    err,out = _execute_in_shell(command_generate_qr)
-                    qr_code_match = re.search(r'QR code = (.+)', out.decode("utf-8"))
-                    if qr_code_match:
-                        qr_code_value = qr_code_match.group(1)
-                        # frappe.msgprint("QR Code Value: " + qr_code_value) 
-                        return qr_code_value
-                    else:
-                        frappe.msgprint("QR Code not found in the output.")    
-                except Exception as e:
-                    frappe.throw(f"Errorin generating qr:{e} ")
-                    return None
+    try:
+        with open(signed_xmlfile_name, 'r') as file:
+            file_content = file.read()
+        command_generate_qr =path_string  + f'fatoora -qr -invoice {signed_xmlfile_name}'
+        err,out = _execute_in_shell(command_generate_qr)
+        qr_code_match = re.search(r'QR code = (.+)', out.decode("utf-8"))
+        if qr_code_match:
+            qr_code_value = qr_code_match.group(1)
+            # frappe.msgprint("QR Code Value: " + qr_code_value) 
+            return qr_code_value
+        else:
+            frappe.msgprint("QR Code not found in the output.")    
+    except Exception as e:
+        frappe.throw(f"Errorin generating qr:{e} ")
+        return None
            
 def generate_hash(signed_xmlfile_name,path_string):
-                try:
-                    command_generate_hash = path_string  + f'fatoora -generateHash -invoice {signed_xmlfile_name}'
-                    err,out = _execute_in_shell(command_generate_hash)
-                    invoice_hash_match = re.search(r'INVOICE HASH = (.+)', out.decode("utf-8"))
-                    if invoice_hash_match:
-                        hash_value = invoice_hash_match.group(1)
-                        # frappe.msgprint("The hash value: " + hash_value)
-                        return hash_value
-                    else:
-                        frappe.msgprint("Hash value not found in the log entry.")
-                except Exception as e:
-                    frappe.throw(f"Error in generate hash:{e} ")
+    try:
+        command_generate_hash = path_string  + f'fatoora -generateHash -invoice {signed_xmlfile_name}'
+        err,out = _execute_in_shell(command_generate_hash)
+        invoice_hash_match = re.search(r'INVOICE HASH = (.+)', out.decode("utf-8"))
+        if invoice_hash_match:
+            hash_value = invoice_hash_match.group(1)
+            # frappe.msgprint("The hash value: " + hash_value)
+            return hash_value
+        else:
+            frappe.msgprint("Hash value not found in the log entry.")
+    except Exception as e:
+        frappe.throw(f"Error in generate hash:{e} ")
                         
 def validate_invoice(signed_xmlfile_name,path_string):               
-                try:
-                        command_validate_hash = path_string  + f'fatoora -validate -invoice {signed_xmlfile_name}'
-                        err,out = _execute_in_shell(command_validate_hash)
-                        pattern_global_result = re.search(r'\*\*\* GLOBAL VALIDATION RESULT = (\w+)', out.decode("utf-8"))
-                        global_result = pattern_global_result.group(1) if pattern_global_result else None
-                        global_validation_result = 'PASSED' if global_result == 'PASSED' else 'FAILED'
-                        if global_validation_result == 'FAILED':
-                            frappe.msgprint(out)
-                            frappe.msgprint(err)
-                            frappe.msgprint("Validation has been failed")
-                        else:
-                            frappe.msgprint(out)
-                            frappe.msgprint(err)
-                            frappe.msgprint("Validation has been done Successfully")
-                except Exception as e:
-                            frappe.throw(f"An error occurred validate invoice: {str(e)}")  
+    try:
+            command_validate_hash = path_string  + f'fatoora -validate -invoice {signed_xmlfile_name}'
+            err,out = _execute_in_shell(command_validate_hash)
+            pattern_global_result = re.search(r'\*\*\* GLOBAL VALIDATION RESULT = (\w+)', out.decode("utf-8"))
+            global_result = pattern_global_result.group(1) if pattern_global_result else None
+            global_validation_result = 'PASSED' if global_result == 'PASSED' else 'FAILED'
+            if global_validation_result == 'FAILED':
+                frappe.msgprint(out)
+                frappe.msgprint(err)
+                frappe.msgprint("Validation has been failed")
+            else:
+                frappe.msgprint(out)
+                frappe.msgprint(err)
+                frappe.msgprint("Validation has been done Successfully")
+    except Exception as e:
+        frappe.throw(f"An error occurred validate invoice: {str(e)}")  
                
 def get_Clearance_Status(result):
-                    try:
-                        json_data = json.loads(result.text)
-                        clearance_status = json_data.get("clearanceStatus")
-                        print("clearance status: " + clearance_status)
-                        return clearance_status
-                    except Exception as e:
-                        print(e) 
+    try:
+        json_data = json.loads(result.text)
+        clearance_status = json_data.get("clearanceStatus")
+        print("clearance status: " + clearance_status)
+        return clearance_status
+    except Exception as e:
+        print(e) 
                         
 def xml_base64_Decode(signed_xmlfile_name):
-                    try:
-                        with open(signed_xmlfile_name, "r") as file:
-                                        xml = file.read().lstrip()
-                                        base64_encoded = base64.b64encode(xml.encode("utf-8"))
-                                        base64_decoded = base64_encoded.decode("utf-8")
-                                        return base64_decoded
-                    except Exception as e:
-                        frappe.throw("Error in xml base64:  " + str(e) )
+    try:
+        with open(signed_xmlfile_name, "r") as file:
+                        xml = file.read().lstrip()
+                        base64_encoded = base64.b64encode(xml.encode("utf-8"))
+                        base64_decoded = base64_encoded.decode("utf-8")
+                        return base64_decoded
+    except Exception as e:
+        frappe.throw("Error in xml base64:  " + str(e) )
                         
 def get_csid_for_company(basic_auth_data, company_name):
-                    try:     
-                        for entry in basic_auth_data.get("data", []):
-                            if entry.get("company") == company_name:
-                                return entry.get("csid")
-                        return None
-                    except Exception as e:
-                        frappe.throw("Error in getting csid for company:  " + str(e) )
+    try:     
+        for entry in basic_auth_data.get("data", []):
+            if entry.get("company") == company_name:
+                return entry.get("csid")
+        return None
+    except Exception as e:
+        frappe.throw("Error in getting csid for company:  " + str(e) )
 
 def compliance_api_call(uuid1,hash_value, signed_xmlfile_name ):
-                # frappe.throw("inside compliance api call")
-                print("inside compliance api call")
-                try:
-                    settings = frappe.get_doc('Zatca setting')
-                    payload = json.dumps({
-                        "invoiceHash": hash_value,
-                        "uuid": uuid1,
-                        "invoice": xml_base64_Decode(signed_xmlfile_name) })
-                    company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
-                    basic_auth = settings.get("basic_auth", "{}")
-                    basic_auth_data = json.loads(basic_auth)
-                    csid = get_csid_for_company(basic_auth_data, company_name)
+    # frappe.throw("inside compliance api call")
+    print("inside compliance api call")
+    try:
+        settings = frappe.get_doc('Zatca setting')
+        payload = json.dumps({
+            "invoiceHash": hash_value,
+            "uuid": uuid1,
+            "invoice": xml_base64_Decode(signed_xmlfile_name) })
+        company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
+        basic_auth = settings.get("basic_auth", "{}")
+        basic_auth_data = json.loads(basic_auth)
+        csid = get_csid_for_company(basic_auth_data, company_name)
 
-                    if csid:
-                        headers = {
-                            'accept': 'application/json',
-                            'Accept-Language': 'en',
-                            'Accept-Version': 'V2',
-                            'Authorization': "Basic " + csid,
-                            'Content-Type': 'application/json'
-                        }
-                    else:
-                        frappe.throw("CSID for company {} not found".format(company_name))
-                    print(get_API_url(base_url="compliance/invoices"), payload, "Values check \n\n\n")
-                    try:
-                        # frappe.throw("inside compliance api call2")
-                        response = requests.request("POST", url=get_API_url(base_url="compliance/invoices"), headers=headers, data=payload)
-                        
-                        frappe.msgprint(response.text)
-                        # return response.text
+        if csid:
+            headers = {
+                'accept': 'application/json',
+                'Accept-Language': 'en',
+                'Accept-Version': 'V2',
+                'Authorization': "Basic " + csid,
+                'Content-Type': 'application/json'
+            }
+        else:
+            frappe.throw("CSID for company {} not found".format(company_name))
+        print(get_API_url(base_url="compliance/invoices"), payload, "Values check \n\n\n")
+        try:
+            # frappe.throw("inside compliance api call2")
+            response = requests.request("POST", url=get_API_url(base_url="compliance/invoices"), headers=headers, data=payload)
+            
+            frappe.msgprint(response.text)
+            # return response.text
 
-                        if response.status_code != 200:
-                            frappe.throw("Error in complaince: " + str(response.text))    
-                    
-                    except Exception as e:
-                        frappe.msgprint(str(e))
-                        return "error in compliance", "NOT ACCEPTED"
-                except Exception as e:
-                    frappe.throw("ERROR in clearance invoice ,zatca validation:  " + str(e) )
+            if response.status_code != 200:
+                frappe.throw("Error in complaince: " + str(response.text))    
+        
+        except Exception as e:
+            frappe.msgprint(str(e))
+            return "error in compliance", "NOT ACCEPTED"
+    except Exception as e:
+        frappe.throw("ERROR in clearance invoice ,zatca validation:  " + str(e) )
 
 def get_request_id_for_company(compliance_request_id_data, company_name):
-                
-                try:
-                    for entry in compliance_request_id_data.get("data", []):
-                        if entry.get("company") == company_name:
-                            return str(entry.get("request_id"))
-                    frappe.throw("Error while retrieving  request id of company for production:  " + str(e) )
-                except Exception as e:
-                        frappe.throw("Error in getting request id of company for production:  " + str(e) )
+    
+    try:
+        for entry in compliance_request_id_data.get("data", []):
+            if entry.get("company") == company_name:
+                return str(entry.get("request_id"))
+        frappe.throw("Error while retrieving  request id of company for production:  " + str(e) )
+    except Exception as e:
+            frappe.throw("Error in getting request id of company for production:  " + str(e) )
 
 @frappe.whitelist(allow_guest=True)                   
 def production_CSID():    
-                try:
-                    settings = frappe.get_doc('Zatca setting')
-                    company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
-                    basic_auth = settings.get("basic_auth", "{}")
-                    frappe.msgprint(basic_auth)
-                    basic_auth_data = json.loads(basic_auth)
-                    csid = get_csid_for_company(basic_auth_data, company_name)
-                    frappe.msgprint(csid)
-                    compliance_request_id = settings.get("compliance_request_id", "{}")
-                    frappe.msgprint(compliance_request_id)
-                    compliance_request_id_data = json.loads(compliance_request_id)
-                    request_id = get_request_id_for_company(compliance_request_id_data, company_name)
-                    frappe.msgprint(request_id)
-                    payload = json.dumps({
-                            "compliance_request_id": request_id
-                        })
-                    headers = {
-                    'accept': 'application/json',
-                    'Accept-Version': 'V2',
-                    'Authorization': 'Basic'+ csid,
-                    # 'Authorization': 'Basic'+ "VkZWc1NsRXhTalpSTUU1Q1dsaHNibEZZWkVwUmEwWnVVMVZrUWxkWWJGcFhhazAxVTJzeFFtSXdaRVJSTTBaSVZUQXdNRTlWU2tKVVZVNU9VV3hXTkZKWWNFSlZhMHB1Vkd4YVExRlZNVTVSTWpGWFUyMUtkVmR1V21oV01EVjNXVzB4YW1Rd2FHOVpNRFZPWVdzeE5GUlhjRXBsYXpGeFVWaHdVRlpGYkRaV01taHFWR3N4Y1ZvemFFNWhhMncxVkZkd1JtUXdNVVZSV0dSWVlXdEpNVlJXUm5wa01FNVNWMVZTVjFWV1JraFNXR1JMVmtaR1ZWSldiRTVSYkd4SVVWUkdWbEpWVGpOa01VSk9aV3RHTTFReFVtcGtNRGxGVVZSS1RsWkZSak5VVlZKQ1pXc3hWRm96WkV0YU1XeEZWbXhHVWxNd1VrTlBWVXBzVWpKNE5sTlZWbk5rVjAxNlVXMTRXazB4U25kWmFra3dXakZGZVU5WVZtdFRSWEJ2VjFST1UyTkhTblJaTW1SVVlrVTFSVlJXVGxwa01IQkNWMVZTVjFWV1JrVlNSVWw0VmxaVmVGVllVbEJTUjJONVZHdFNUbVZGTVZWVlZFWk5Wa1V4TTFSVlVuSk5NREZGV2pOa1QyRnJWak5VVlZKQ1pEQXhObEZzWkU1UmEwWklVVzVzZUZJeFRrNU9SR3hDV2pCV1NGRnNUakZSYTBwQ1VWVjBRazFGYkVKUmEzaFNZVWhDV1UxRlNrVmtSVVpTVDFWS05rOUhaM2ROYms1M1ZrWkdTbFZWVGpKT1YyYzBWRmhHTkdGRVVuQlRSVEYzVVcwNGRsRnRPWEJXUm1ScllsTjBVMWRYV2t0aVZYQlBaR3BrV1dSdVZUVk5NbHAyVjFjME1FNVVhRTlTTVVwdVltNW5NazVIV2xkaGJUbFdUREZDTVdGdFpHcFhXR1J1V1RBeE0xSkZSbHBTUmxwVFRVWlNRbFZWWjNaUmEwWktaREJHUlZFd1NucGFNV3hGVm14SmQxVnJTa3BTTTBaT1UxVmtkV05GYkVoaE1ERktVakpvVGxaSVRqTlVNVVphVWtaYVVsVlZWa1ZTUld3MFZFWmFVMVpHV2tsa00yeE5WbXhLVlZacmFETmxhM2hZVm0xMFRtRnJjSFJVVm1SU1RrVjRXRlpVU2xwV1JXd3dWRlpTUm1WRk9VUk5SRlphWVd4Vk1GUkdaRkpPVm14VllVY3hUbFpGV25OVWExSlNUVlp3Y1ZKWFdrNVJha0pJVVRKa2RGVXdjSFppVmxFMFlWaG9jbEZXUmtaVVZWSTJWRmhrVGxKSGMzcFVWVkp1WkRBMWNWSllaRTVTUlVZelZGaHdSbFJyTVVKak1HUkNUVlpXUmxKRlJqTlNWVEZWVWxob1RsWkZWbE5VVlVVMFVqQkZlRlpWVmtoYU0yUktWbGQ0UzFVeFNrVlRWRlpPWVcxME5GTkljRUphUlVwdVZHeGFRMUZVYUU1U2JYaExZa1pzV0dReVpHRlhSVFIzVjFab1UySkZiRWhTYlhCclVqSjNlVmxXYUZOalJuQlpWRmhrUkZveGJFcFRNamxoVTFod2NVMUZWa0prTUd4RlZURkdRbVF4U201VFYyaENWRmhHVTFOclJYSlZSRTVKVkVac2FWUXdNRFJPVldoTFRETmtUMlZ0UmxkT01XUnFXbTVKZGxkcVRqRmpWR3hMVFRCV1ZHTnNXbHBsYTBad1VsVkdkazV0YUdwUFZGSlRVMGR3YldRelRuZFpVemwzVjBaYWRWWnBPWFpWVjBaT1QxUk9hVTVzU1RKaVYyUmhWMFJDTVZGV1RYbE5WVnB1VUZFOVBRPT06eXRabHl6YklXY0wrUHlETytFd1JqWHRHSEp4SHB3cXdJYUVsaGxMQVJZQT0=",
-                    # 'Authorization': 'Basic'+ "VFVsSlExSjZRME5CWlhsblFYZEpRa0ZuU1VkQldYbFpXak01U2sxQmIwZERRM0ZIVTAwME9VSkJUVU5OUWxWNFJYcEJVa0puVGxaQ1FVMU5RMjFXU21KdVduWmhWMDV3WW0xamQwaG9ZMDVOYWsxNFRXcEplazFxUVhwUFZFbDZWMmhqVGsxcVozaE5ha2w1VFdwRmQwMUVRWGRYYWtJMVRWRnpkME5SV1VSV1VWRkhSWGRLVkZGVVJWbE5RbGxIUVRGVlJVTjNkMUJOZWtGM1QxUmpkMDlFUVRKTlZFRjNUVVJCZWsxVFozZEtaMWxFVmxGUlMwUkNPVUpsUjJ4NlNVVnNkV016UW14Wk0xSndZakkwWjFFeU9YVmtTRXBvV1ROU2NHSnRZMmRUYkU1RVRWTlpkMHBCV1VSV1VWRkVSRUl4VlZVeFVYUlBSR2N5VGtSTmVFMVVVVEZNVkUxM1RVUnJNMDFFWjNkT2FrVjNUVVJCZDAxNlFsZE5Ra0ZIUW5seFIxTk5ORGxCWjBWSFFsTjFRa0pCUVV0Qk1FbEJRa3hSYUhCWU1FSkVkRUZST1VKNk9HZ3dNbk53VkZGSlVVTjJOV2c0VFhGNGFEUnBTRTF3UW04dlFtOXBWRmRrYlN0U1dXWktiVXBPZGpkWWRuVTVNMlp2V1c0ME5UaE9SMUpuYm5nMk5HWldhbTlWTDFCMWFtZGpXWGRuWTAxM1JFRlpSRlpTTUZSQlVVZ3ZRa0ZKZDBGRVEwSnpaMWxFVmxJd1VrSkpSM0ZOU1VkdWNFbEhhMDFKUjJoTlZITjNUMUZaUkZaUlVVVkVSRWw0VEZaU1ZGWklkM2xNVmxKVVZraDNla3hYVm10TmFrcHRUVmRSTkV4WFZUSlpWRWwwVFZSRmVFOURNRFZaYWxVMFRGZFJOVmxVYUcxTlZFWnNUa1JSTVZwcVJXWk5RakJIUTJkdFUwcHZiVlE0YVhoclFWRkZUVVI2VFhkTlJHc3pUVVJuZDA1cVJYZE5SRUYzVFhwRlRrMUJjMGRCTVZWRlJFRjNSVTFVUlhoTlZFVlNUVUU0UjBFeFZVVkhaM2RKVld4S1UxSkVTVFZOYW10NFNIcEJaRUpuVGxaQ1FUaE5SbXhLYkZsWGQyZGFXRTR3V1ZoU2JFbEhSbXBrUjJ3eVlWaFNjRnBZVFhkRFoxbEpTMjlhU1hwcU1FVkJkMGxFVTFGQmQxSm5TV2hCVFhGU1NrRXJVRE5JVEZsaVQwMDROVWhLTDNkT2VtRldOMWRqWm5JdldqTjFjVGxLTTBWVGNsWlpla0ZwUlVGdk5taGpPVFJTU0dwbWQzTndZUzl3V0ZadVZpOXZVV0ZOT1ROaU5sSTJiV2RhV0RCMVFWTXlNVVpuUFE9PTp5dFpseXpiSVdjTCtQeURPK0V3UmpYdEdISnhIcHdxd0lhRWxobExBUllBPQ==",
-                    'Content-Type': 'application/json' }
-                    response = requests.request("POST", url=get_API_url(base_url="production/csids"), headers=headers, data=payload)
-                    frappe.msgprint(response.text)
-                    if response.status_code != 200:
-                        frappe.throw("Error in production: " + str(response.text))
-                    data=json.loads(response.text)
-                    concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
-                    encoded_value = base64.b64encode(concatenated_value.encode()).decode()
-                    with open(f"{company_name}.pem", 'w') as file:   #attaching X509 certificate
-                        file.write(base64.b64decode(data["binarySecurityToken"]).decode('utf-8'))
-                    basic_auth_production = settings.get("basic_auth_production", "{}")
-                    try:
-                        basic_auth_production_data = json.loads(basic_auth_production)
-                    except json.JSONDecodeError:
-                        basic_auth_production_data = {"companies": []}
-                    except:
-                        basic_auth_production_data = {"companies": []}
-                    frappe.msgprint(basic_auth_production_data)
+    try:
+        settings = frappe.get_doc('Zatca setting')
+        company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
+        basic_auth = settings.get("basic_auth", "{}")
+        frappe.msgprint(basic_auth)
+        basic_auth_data = json.loads(basic_auth)
+        csid = get_csid_for_company(basic_auth_data, company_name)
+        frappe.msgprint(csid)
+        compliance_request_id = settings.get("compliance_request_id", "{}")
+        frappe.msgprint(compliance_request_id)
+        compliance_request_id_data = json.loads(compliance_request_id)
+        request_id = get_request_id_for_company(compliance_request_id_data, company_name)
+        frappe.msgprint(request_id)
+        payload = json.dumps({
+                "compliance_request_id": request_id
+            })
+        headers = {
+        'accept': 'application/json',
+        'Accept-Version': 'V2',
+        'Authorization': 'Basic'+ csid,
+        # 'Authorization': 'Basic'+ "VkZWc1NsRXhTalpSTUU1Q1dsaHNibEZZWkVwUmEwWnVVMVZrUWxkWWJGcFhhazAxVTJzeFFtSXdaRVJSTTBaSVZUQXdNRTlWU2tKVVZVNU9VV3hXTkZKWWNFSlZhMHB1Vkd4YVExRlZNVTVSTWpGWFUyMUtkVmR1V21oV01EVjNXVzB4YW1Rd2FHOVpNRFZPWVdzeE5GUlhjRXBsYXpGeFVWaHdVRlpGYkRaV01taHFWR3N4Y1ZvemFFNWhhMncxVkZkd1JtUXdNVVZSV0dSWVlXdEpNVlJXUm5wa01FNVNWMVZTVjFWV1JraFNXR1JMVmtaR1ZWSldiRTVSYkd4SVVWUkdWbEpWVGpOa01VSk9aV3RHTTFReFVtcGtNRGxGVVZSS1RsWkZSak5VVlZKQ1pXc3hWRm96WkV0YU1XeEZWbXhHVWxNd1VrTlBWVXBzVWpKNE5sTlZWbk5rVjAxNlVXMTRXazB4U25kWmFra3dXakZGZVU5WVZtdFRSWEJ2VjFST1UyTkhTblJaTW1SVVlrVTFSVlJXVGxwa01IQkNWMVZTVjFWV1JrVlNSVWw0VmxaVmVGVllVbEJTUjJONVZHdFNUbVZGTVZWVlZFWk5Wa1V4TTFSVlVuSk5NREZGV2pOa1QyRnJWak5VVlZKQ1pEQXhObEZzWkU1UmEwWklVVzVzZUZJeFRrNU9SR3hDV2pCV1NGRnNUakZSYTBwQ1VWVjBRazFGYkVKUmEzaFNZVWhDV1UxRlNrVmtSVVpTVDFWS05rOUhaM2ROYms1M1ZrWkdTbFZWVGpKT1YyYzBWRmhHTkdGRVVuQlRSVEYzVVcwNGRsRnRPWEJXUm1ScllsTjBVMWRYV2t0aVZYQlBaR3BrV1dSdVZUVk5NbHAyVjFjME1FNVVhRTlTTVVwdVltNW5NazVIV2xkaGJUbFdUREZDTVdGdFpHcFhXR1J1V1RBeE0xSkZSbHBTUmxwVFRVWlNRbFZWWjNaUmEwWktaREJHUlZFd1NucGFNV3hGVm14SmQxVnJTa3BTTTBaT1UxVmtkV05GYkVoaE1ERktVakpvVGxaSVRqTlVNVVphVWtaYVVsVlZWa1ZTUld3MFZFWmFVMVpHV2tsa00yeE5WbXhLVlZacmFETmxhM2hZVm0xMFRtRnJjSFJVVm1SU1RrVjRXRlpVU2xwV1JXd3dWRlpTUm1WRk9VUk5SRlphWVd4Vk1GUkdaRkpPVm14VllVY3hUbFpGV25OVWExSlNUVlp3Y1ZKWFdrNVJha0pJVVRKa2RGVXdjSFppVmxFMFlWaG9jbEZXUmtaVVZWSTJWRmhrVGxKSGMzcFVWVkp1WkRBMWNWSllaRTVTUlVZelZGaHdSbFJyTVVKak1HUkNUVlpXUmxKRlJqTlNWVEZWVWxob1RsWkZWbE5VVlVVMFVqQkZlRlpWVmtoYU0yUktWbGQ0UzFVeFNrVlRWRlpPWVcxME5GTkljRUphUlVwdVZHeGFRMUZVYUU1U2JYaExZa1pzV0dReVpHRlhSVFIzVjFab1UySkZiRWhTYlhCclVqSjNlVmxXYUZOalJuQlpWRmhrUkZveGJFcFRNamxoVTFod2NVMUZWa0prTUd4RlZURkdRbVF4U201VFYyaENWRmhHVTFOclJYSlZSRTVKVkVac2FWUXdNRFJPVldoTFRETmtUMlZ0UmxkT01XUnFXbTVKZGxkcVRqRmpWR3hMVFRCV1ZHTnNXbHBsYTBad1VsVkdkazV0YUdwUFZGSlRVMGR3YldRelRuZFpVemwzVjBaYWRWWnBPWFpWVjBaT1QxUk9hVTVzU1RKaVYyUmhWMFJDTVZGV1RYbE5WVnB1VUZFOVBRPT06eXRabHl6YklXY0wrUHlETytFd1JqWHRHSEp4SHB3cXdJYUVsaGxMQVJZQT0=",
+        # 'Authorization': 'Basic'+ "VFVsSlExSjZRME5CWlhsblFYZEpRa0ZuU1VkQldYbFpXak01U2sxQmIwZERRM0ZIVTAwME9VSkJUVU5OUWxWNFJYcEJVa0puVGxaQ1FVMU5RMjFXU21KdVduWmhWMDV3WW0xamQwaG9ZMDVOYWsxNFRXcEplazFxUVhwUFZFbDZWMmhqVGsxcVozaE5ha2w1VFdwRmQwMUVRWGRYYWtJMVRWRnpkME5SV1VSV1VWRkhSWGRLVkZGVVJWbE5RbGxIUVRGVlJVTjNkMUJOZWtGM1QxUmpkMDlFUVRKTlZFRjNUVVJCZWsxVFozZEtaMWxFVmxGUlMwUkNPVUpsUjJ4NlNVVnNkV016UW14Wk0xSndZakkwWjFFeU9YVmtTRXBvV1ROU2NHSnRZMmRUYkU1RVRWTlpkMHBCV1VSV1VWRkVSRUl4VlZVeFVYUlBSR2N5VGtSTmVFMVVVVEZNVkUxM1RVUnJNMDFFWjNkT2FrVjNUVVJCZDAxNlFsZE5Ra0ZIUW5seFIxTk5ORGxCWjBWSFFsTjFRa0pCUVV0Qk1FbEJRa3hSYUhCWU1FSkVkRUZST1VKNk9HZ3dNbk53VkZGSlVVTjJOV2c0VFhGNGFEUnBTRTF3UW04dlFtOXBWRmRrYlN0U1dXWktiVXBPZGpkWWRuVTVNMlp2V1c0ME5UaE9SMUpuYm5nMk5HWldhbTlWTDFCMWFtZGpXWGRuWTAxM1JFRlpSRlpTTUZSQlVVZ3ZRa0ZKZDBGRVEwSnpaMWxFVmxJd1VrSkpSM0ZOU1VkdWNFbEhhMDFKUjJoTlZITjNUMUZaUkZaUlVVVkVSRWw0VEZaU1ZGWklkM2xNVmxKVVZraDNla3hYVm10TmFrcHRUVmRSTkV4WFZUSlpWRWwwVFZSRmVFOURNRFZaYWxVMFRGZFJOVmxVYUcxTlZFWnNUa1JSTVZwcVJXWk5RakJIUTJkdFUwcHZiVlE0YVhoclFWRkZUVVI2VFhkTlJHc3pUVVJuZDA1cVJYZE5SRUYzVFhwRlRrMUJjMGRCTVZWRlJFRjNSVTFVUlhoTlZFVlNUVUU0UjBFeFZVVkhaM2RKVld4S1UxSkVTVFZOYW10NFNIcEJaRUpuVGxaQ1FUaE5SbXhLYkZsWGQyZGFXRTR3V1ZoU2JFbEhSbXBrUjJ3eVlWaFNjRnBZVFhkRFoxbEpTMjlhU1hwcU1FVkJkMGxFVTFGQmQxSm5TV2hCVFhGU1NrRXJVRE5JVEZsaVQwMDROVWhLTDNkT2VtRldOMWRqWm5JdldqTjFjVGxLTTBWVGNsWlpla0ZwUlVGdk5taGpPVFJTU0dwbWQzTndZUzl3V0ZadVZpOXZVV0ZOT1ROaU5sSTJiV2RhV0RCMVFWTXlNVVpuUFE9PTp5dFpseXpiSVdjTCtQeURPK0V3UmpYdEdISnhIcHdxd0lhRWxobExBUllBPQ==",
+        'Content-Type': 'application/json' }
+        response = requests.request("POST", url=get_API_url(base_url="production/csids"), headers=headers, data=payload)
+        frappe.msgprint(response.text)
+        if response.status_code != 200:
+            frappe.throw("Error in production: " + str(response.text))
+        data=json.loads(response.text)
+        concatenated_value = data["binarySecurityToken"] + ":" + data["secret"]
+        encoded_value = base64.b64encode(concatenated_value.encode()).decode()
+        with open(f"{company_name}.pem", 'w') as file:   #attaching X509 certificate
+            file.write(base64.b64decode(data["binarySecurityToken"]).decode('utf-8'))
+        basic_auth_production = settings.get("basic_auth_production", "{}")
+        try:
+            basic_auth_production_data = json.loads(basic_auth_production)
+        except json.JSONDecodeError:
+            basic_auth_production_data = {"companies": []}
+        except:
+            basic_auth_production_data = {"companies": []}
+        frappe.msgprint(basic_auth_production_data)
 
-                    updated_data = update_json_data_production_csid(basic_auth_production_data, company_name, encoded_value)
-                    settings.set("basic_auth_production", json.dumps(updated_data))
-                    settings.save(ignore_permissions=True)
-                except Exception as e:
-                    frappe.throw("error in  production csid formation:  " + str(e) )
+        updated_data = update_json_data_production_csid(basic_auth_production_data, company_name, encoded_value)
+        settings.set("basic_auth_production", json.dumps(updated_data))
+        settings.save(ignore_permissions=True)
+    except Exception as e:
+        frappe.throw("error in  production csid formation:  " + str(e) )
 
 def get_Reporting_Status(result):
-                    try:
-                        json_data = json.loads(result.text)
-                        reporting_status = json_data.get("reportingStatus")
-                        print("reportingStatus: " + reporting_status)
-                        return reporting_status
-                    except Exception as e:
-                        print(e) 
+    try:
+        json_data = json.loads(result.text)
+        reporting_status = json_data.get("reportingStatus")
+        print("reportingStatus: " + reporting_status)
+        return reporting_status
+    except Exception as e:
+        print(e) 
 
 def success_Log(response,uuid1,invoice_number):
-                    try:
-                        current_time = frappe.utils.now()
-                        frappe.get_doc({
-                            "doctype": "Zatca Success log",
-                            "title": "Zatca invoice call done successfully",
-                            "message": "This message by Zatca Compliance",
-                            "uuid": uuid1,
-                            "invoice_number": invoice_number,
-                            "time": current_time,
-                            "zatca_response": response  
-                            
-                        }).insert(ignore_permissions=True)
-                    except Exception as e:
-                        frappe.throw("Error in success log  " + str(e))
+    try:
+        current_time = frappe.utils.now()
+        frappe.get_doc({
+            "doctype": "Zatca Success log",
+            "title": "Zatca invoice call done successfully",
+            "message": "This message by Zatca Compliance",
+            "uuid": uuid1,
+            "invoice_number": invoice_number,
+            "time": current_time,
+            "zatca_response": response  
+            
+        }).insert(ignore_permissions=True)
+    except Exception as e:
+        frappe.throw("Error in success log  " + str(e))
 
 def error_Log():
-                    try:
-                        frappe.log_error(title='Zatca invoice call failed in clearance status',message=frappe.get_traceback())
-                    except Exception as e:
-                        frappe.throw("Error in error log  " + str(e))   
+    try:
+        frappe.log_error(title='Zatca invoice call failed in clearance status',message=frappe.get_traceback())
+    except Exception as e:
+        frappe.throw("Error in error log  " + str(e))   
 
 def attach_QR_Image_For_Reporting(qr_code_value,sales_invoice_doc):
-                    try:
-                            qr = pyqrcode.create(qr_code_value)
-                            temp_file_path = "qr_code_value.png"
-                            qr.png(temp_file_path, scale=5)
-                            file = frappe.get_doc({
-                                "doctype": "File",
-                                "file_name": f"QR_image_{sales_invoice_doc.name}.png",
-                                "attached_to_doctype": sales_invoice_doc.doctype,
-                                "attached_to_name": sales_invoice_doc.name,
-                                "content": open(temp_file_path, "rb").read()
-                               
-                            })
-                            file.save(ignore_permissions=True)
-                    except Exception as e:
-                        frappe.throw("Error in qr image attach for reporting api   " + str(e)) 
+    try:
+            qr = pyqrcode.create(qr_code_value)
+            temp_file_path = "qr_code_value.png"
+            qr.png(temp_file_path, scale=5)
+            file = frappe.get_doc({
+                "doctype": "File",
+                "file_name": f"QR_image_{sales_invoice_doc.name}.png",
+                "attached_to_doctype": sales_invoice_doc.doctype,
+                "attached_to_name": sales_invoice_doc.name,
+                "content": open(temp_file_path, "rb").read()
+                
+            })
+            file.save(ignore_permissions=True)
+    except Exception as e:
+        frappe.throw("Error in qr image attach for reporting api   " + str(e)) 
 
 def get_production_csid_for_company(basic_auth_production_data, company_name):
-                    try:  
-                        for entry in basic_auth_production_data.get("companies", []):
-                            if entry.get("company") == company_name:
-                                return entry.get("production_csid")
-                        return None
-                    except Exception as e:
-                            frappe.throw("Error in getting production csid of company for api   " + str(e)) 
+    try:  
+        for entry in basic_auth_production_data.get("companies", []):
+            if entry.get("company") == company_name:
+                return entry.get("production_csid")
+        return None
+    except Exception as e:
+            frappe.throw("Error in getting production csid of company for api   " + str(e)) 
 
 def update_json_data_pih(existing_data, company_name, pih):
-                    try:
-                        company_exists = False
-                        for entry in existing_data["data"]:
-                            if entry["company"] == company_name:
-                                # Update the PIH for the existing company
-                                entry["pih"] = pih
-                                company_exists = True
-                                break
-                        if not company_exists:
-                            existing_data["data"].append({
-                                "company": company_name,
-                                "pih": pih
-                            })
-                        return existing_data
-                    except Exception as e:
-                                        frappe.throw("Error in json data of pih  " + str(e)) 
+    try:
+        company_exists = False
+        for entry in existing_data["data"]:
+            if entry["company"] == company_name:
+                # Update the PIH for the existing company
+                entry["pih"] = pih
+                company_exists = True
+                break
+        if not company_exists:
+            existing_data["data"].append({
+                "company": company_name,
+                "pih": pih
+            })
+        return existing_data
+    except Exception as e:
+        frappe.throw("Error in json data of pih  " + str(e)) 
 
 
 def reporting_API(uuid1,hash_value,signed_xmlfile_name,invoice_number,sales_invoice_doc):
-                    try:
-                        settings = frappe.get_doc('Zatca setting')
-                        company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
-                        payload = json.dumps({
-                        "invoiceHash": hash_value,
-                        "uuid": uuid1,
-                        "invoice": xml_base64_Decode(signed_xmlfile_name),
-                        })
-                        basic_auth_production = settings.get("basic_auth_production", "{}")
-                        basic_auth_production_data = json.loads(basic_auth_production)
-                        production_csid = get_production_csid_for_company(basic_auth_production_data, company_name)
+    try:
+        settings = frappe.get_doc('Zatca setting')
+        company_name = settings.company.replace(" ", "-").replace(".", "-").rstrip('.-')
+        payload = json.dumps({
+        "invoiceHash": hash_value,
+        "uuid": uuid1,
+        "invoice": xml_base64_Decode(signed_xmlfile_name),
+        })
+        basic_auth_production = settings.get("basic_auth_production", "{}")
+        basic_auth_production_data = json.loads(basic_auth_production)
+        production_csid = get_production_csid_for_company(basic_auth_production_data, company_name)
 
-                        if production_csid:
-                            headers = {
-                                'accept': 'application/json',
-                                    'accept-language': 'en',
-                                    'Clearance-Status': '0',
-                                    'Accept-Version': 'V2',
-                                    # 'Authorization': "Basic VFVsSlJESjZRME5CTkVOblFYZEpRa0ZuU1ZSaWQwRkJaSEZFYlVsb2NYTnFjRzAxUTNkQlFrRkJRakp2UkVGTFFtZG5jV2hyYWs5UVVWRkVRV3BDYWsxU1ZYZEZkMWxMUTFwSmJXbGFVSGxNUjFGQ1IxSlpSbUpIT1dwWlYzZDRSWHBCVWtKbmIwcHJhV0ZLYXk5SmMxcEJSVnBHWjA1dVlqTlplRVo2UVZaQ1oyOUthMmxoU21zdlNYTmFRVVZhUm1ka2JHVklVbTVaV0hBd1RWSjNkMGRuV1VSV1VWRkVSWGhPVlZVeGNFWlRWVFZYVkRCc1JGSlRNVlJrVjBwRVVWTXdlRTFDTkZoRVZFbDVUVVJOZVU5RVJURk9SRmw2VFd4dldFUlVTWGxOUkUxNlRVUkZNVTVFV1hwTmJHOTNWRlJGVEUxQmEwZEJNVlZGUW1oTlExVXdSWGhFYWtGTlFtZE9Wa0pCYjFSQ1ZYQm9ZMjFzZVUxU2IzZEhRVmxFVmxGUlRFVjRSa3RhVjFKcldWZG5aMUZ1U21oaWJVNXZUVlJKZWs1RVJWTk5Ra0ZIUVRGVlJVRjRUVXBOVkVrelRHcEJkVTFETkhoTlJsbDNSVUZaU0V0dldrbDZhakJEUVZGWlJrczBSVVZCUVc5RVVXZEJSVVF2ZDJJeWJHaENka0pKUXpoRGJtNWFkbTkxYnpaUGVsSjViWGx0VlRsT1YxSm9TWGxoVFdoSFVrVkNRMFZhUWpSRlFWWnlRblZXTW5oWWFYaFpOSEZDV1dZNVpHUmxjbnByVnpsRWQyUnZNMGxzU0dkeFQwTkJhVzkzWjJkSmJVMUpSMHhDWjA1V1NGSkZSV2RaVFhkbldVTnJabXBDT0UxU2QzZEhaMWxFVmxGUlJVUkNUWGxOYWtsNVRXcE5lVTVFVVRCTmVsRjZZVzFhYlU1RVRYbE5VamgzU0ZGWlMwTmFTVzFwV2xCNVRFZFJRa0ZSZDFCTmVrVjNUVlJqTVUxNmF6Tk9SRUYzVFVSQmVrMVJNSGREZDFsRVZsRlJUVVJCVVhoTlJFVjRUVkpGZDBSM1dVUldVVkZoUkVGb1ZGbFhNWGRpUjFWblVsUkZXazFDWTBkQk1WVkZSSGQzVVZVeVJuUmpSM2hzU1VWS01XTXpUbkJpYlZaNlkzcEJaRUpuVGxaSVVUUkZSbWRSVldoWFkzTmlZa3BvYWtRMVdsZFBhM2RDU1V4REszZE9WbVpMV1hkSWQxbEVWbEl3YWtKQ1ozZEdiMEZWWkcxRFRTdDNZV2R5UjJSWVRsb3pVRzF4ZVc1TE5Xc3hkRk00ZDFSbldVUldVakJtUWtWamQxSlVRa1J2UlVkblVEUlpPV0ZJVWpCalJHOTJURE5TZW1SSFRubGlRelUyV1ZoU2FsbFROVzVpTTFsMVl6SkZkbEV5Vm5sa1JWWjFZMjA1YzJKRE9WVlZNWEJHVTFVMVYxUXdiRVJTVXpGVVpGZEtSRkZUTUhoTWJVNTVZa1JEUW5KUldVbExkMWxDUWxGVlNFRlJSVVZuWVVGM1oxb3dkMkpuV1VsTGQxbENRbEZWU0UxQlIwZFpiV2d3WkVoQk5reDVPVEJqTTFKcVkyMTNkV1Z0UmpCWk1rVjFXakk1TWt4dVRtaE1NRTVzWTI1U1JtSnVTblppUjNkMlZrWk9ZVkpYYkhWa2JUbHdXVEpXVkZFd1JYaE1iVlkwWkVka2FHVnVVWFZhTWpreVRHMTRkbGt5Um5OWU1WSlVWMnRXU2xSc1dsQlRWVTVHVEZaT01WbHJUa0pNVkVWdlRWTnJkVmt6U2pCTlEzTkhRME56UjBGUlZVWkNla0ZDYUdnNWIyUklVbmRQYVRoMlpFaE9NRmt6U25OTWJuQm9aRWRPYUV4dFpIWmthVFY2V1ZNNWRsa3pUbmROUVRSSFFURlZaRVIzUlVJdmQxRkZRWGRKU0dkRVFXUkNaMDVXU0ZOVlJVWnFRVlZDWjJkeVFtZEZSa0pSWTBSQloxbEpTM2RaUWtKUlZVaEJkMDEzU25kWlNrdDNXVUpDUVVkRFRuaFZTMEpDYjNkSFJFRkxRbWRuY2tKblJVWkNVV05FUVdwQlMwSm5aM0pDWjBWR1FsRmpSRUY2UVV0Q1oyZHhhR3RxVDFCUlVVUkJaMDVLUVVSQ1IwRnBSVUY1VG1oNVkxRXpZazVzVEVaa1QxQnNjVmxVTmxKV1VWUlhaMjVMTVVkb01FNUlaR05UV1RSUVprTXdRMGxSUTFOQmRHaFlkblkzZEdWMFZVdzJPVmRxY0RoQ2VHNU1URTEzWlhKNFdtaENibVYzYnk5blJqTkZTa0U5UFE9PTpmOVlSaG9wTi9HN3gwVEVDT1k2bktTQ0hMTllsYjVyaUFIU0ZQSUNvNHF3PQ==" ,
-                                    # 'Authorization': "Basic VFVsSlJESjZRME5CTkVOblFYZEpRa0ZuU1ZSaWQwRkJaSEZFYlVsb2NYTnFjRzAxUTNkQlFrRkJRakp2UkVGTFFtZG5jV2hyYWs5UVVWRkVRV3BDYWsxU1ZYZEZkMWxMUTFwSmJXbGFVSGxNUjFGQ1IxSlpSbUpIT1dwWlYzZDRSWHBCVWtKbmIwcHJhV0ZLYXk5SmMxcEJSVnBHWjA1dVlqTlplRVo2UVZaQ1oyOUthMmxoU21zdlNYTmFRVVZhUm1ka2JHVklVbTVaV0hBd1RWSjNkMGRuV1VSV1VWRkVSWGhPVlZVeGNFWlRWVFZYVkRCc1JGSlRNVlJrVjBwRVVWTXdlRTFDTkZoRVZFbDVUVVJOZVU5RVJURk9SRmw2VFd4dldFUlVTWGxOUkUxNlRVUkZNVTVFV1hwTmJHOTNWRlJGVEUxQmEwZEJNVlZGUW1oTlExVXdSWGhFYWtGTlFtZE9Wa0pCYjFSQ1ZYQm9ZMjFzZVUxU2IzZEhRVmxFVmxGUlRFVjRSa3RhVjFKcldWZG5aMUZ1U21oaWJVNXZUVlJKZWs1RVJWTk5Ra0ZIUVRGVlJVRjRUVXBOVkVrelRHcEJkVTFETkhoTlJsbDNSVUZaU0V0dldrbDZhakJEUVZGWlJrczBSVVZCUVc5RVVXZEJSVVF2ZDJJeWJHaENka0pKUXpoRGJtNWFkbTkxYnpaUGVsSjViWGx0VlRsT1YxSm9TWGxoVFdoSFVrVkNRMFZhUWpSRlFWWnlRblZXTW5oWWFYaFpOSEZDV1dZNVpHUmxjbnByVnpsRWQyUnZNMGxzU0dkeFQwTkJhVzkzWjJkSmJVMUpSMHhDWjA1V1NGSkZSV2RaVFhkbldVTnJabXBDT0UxU2QzZEhaMWxFVmxGUlJVUkNUWGxOYWtsNVRXcE5lVTVFVVRCTmVsRjZZVzFhYlU1RVRYbE5VamgzU0ZGWlMwTmFTVzFwV2xCNVRFZFJRa0ZSZDFCTmVrVjNUVlJqTVUxNmF6Tk9SRUYzVFVSQmVrMVJNSGREZDFsRVZsRlJUVVJCVVhoTlJFVjRUVkpGZDBSM1dVUldVVkZoUkVGb1ZGbFhNWGRpUjFWblVsUkZXazFDWTBkQk1WVkZSSGQzVVZVeVJuUmpSM2hzU1VWS01XTXpUbkJpYlZaNlkzcEJaRUpuVGxaSVVUUkZSbWRSVldoWFkzTmlZa3BvYWtRMVdsZFBhM2RDU1V4REszZE9WbVpMV1hkSWQxbEVWbEl3YWtKQ1ozZEdiMEZWWkcxRFRTdDNZV2R5UjJSWVRsb3pVRzF4ZVc1TE5Xc3hkRk00ZDFSbldVUldVakJtUWtWamQxSlVRa1J2UlVkblVEUlpPV0ZJVWpCalJHOTJURE5TZW1SSFRubGlRelUyV1ZoU2FsbFROVzVpTTFsMVl6SkZkbEV5Vm5sa1JWWjFZMjA1YzJKRE9WVlZNWEJHVTFVMVYxUXdiRVJTVXpGVVpGZEtSRkZUTUhoTWJVNTVZa1JEUW5KUldVbExkMWxDUWxGVlNFRlJSVVZuWVVGM1oxb3dkMkpuV1VsTGQxbENRbEZWU0UxQlIwZFpiV2d3WkVoQk5reDVPVEJqTTFKcVkyMTNkV1Z0UmpCWk1rVjFXakk1TWt4dVRtaE1NRTVzWTI1U1JtSnVTblppUjNkMlZrWk9ZVkpYYkhWa2JUbHdXVEpXVkZFd1JYaE1iVlkwWkVka2FHVnVVWFZhTWpreVRHMTRkbGt5Um5OWU1WSlVWMnRXU2xSc1dsQlRWVTVHVEZaT01WbHJUa0pNVkVWdlRWTnJkVmt6U2pCTlEzTkhRME56UjBGUlZVWkNla0ZDYUdnNWIyUklVbmRQYVRoMlpFaE9NRmt6U25OTWJuQm9aRWRPYUV4dFpIWmthVFY2V1ZNNWRsa3pUbmROUVRSSFFURlZaRVIzUlVJdmQxRkZRWGRKU0dkRVFXUkNaMDVXU0ZOVlJVWnFRVlZDWjJkeVFtZEZSa0pSWTBSQloxbEpTM2RaUWtKUlZVaEJkMDEzU25kWlNrdDNXVUpDUVVkRFRuaFZTMEpDYjNkSFJFRkxRbWRuY2tKblJVWkNVV05FUVdwQlMwSm5aM0pDWjBWR1FsRmpSRUY2UVV0Q1oyZHhhR3RxVDFCUlVVUkJaMDVLUVVSQ1IwRnBSVUY1VG1oNVkxRXpZazVzVEVaa1QxQnNjVmxVTmxKV1VWUlhaMjVMTVVkb01FNUlaR05UV1RSUVprTXdRMGxSUTFOQmRHaFlkblkzZEdWMFZVdzJPVmRxY0RoQ2VHNU1URTEzWlhKNFdtaENibVYzYnk5blJqTkZTa0U5UFE9PTpmOVlSaG9wTi9HN3gwVEVDT1k2bktTQ0hMTllsYjVyaUFIU0ZQSUNvNHF3PQ==",
-                                    # 'Authorization': 'Basic' + settings.basic_auth_production,
-                                    'Authorization': 'Basic' + production_csid,
-                                    'Content-Type': 'application/json',
-                                    'Cookie': 'TS0106293e=0132a679c0639d13d069bcba831384623a2ca6da47fac8d91bef610c47c7119dcdd3b817f963ec301682dae864351c67ee3a402866'
-                                    }    
-                        else:
-                            frappe.throw("Production CSID for company {} not found".format(company_name))
-                        try:
-                            response = requests.request("POST", url=get_API_url(base_url="invoices/reporting/single"), headers=headers, data=payload)
-                      
-                            if response.status_code  in (400,405,406,409 ):
-                                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number )
-                                invoice_doc.db_set('custom_uuid' , 'Not Submitted' , commit=True  , update_modified=True)
-                                invoice_doc.db_set('custom_zatca_status' , 'Not Submitted' , commit=True  , update_modified=True)
+        if production_csid:
+            headers = {
+                'accept': 'application/json',
+                    'accept-language': 'en',
+                    'Clearance-Status': '0',
+                    'Accept-Version': 'V2',
+                    # 'Authorization': "Basic VFVsSlJESjZRME5CTkVOblFYZEpRa0ZuU1ZSaWQwRkJaSEZFYlVsb2NYTnFjRzAxUTNkQlFrRkJRakp2UkVGTFFtZG5jV2hyYWs5UVVWRkVRV3BDYWsxU1ZYZEZkMWxMUTFwSmJXbGFVSGxNUjFGQ1IxSlpSbUpIT1dwWlYzZDRSWHBCVWtKbmIwcHJhV0ZLYXk5SmMxcEJSVnBHWjA1dVlqTlplRVo2UVZaQ1oyOUthMmxoU21zdlNYTmFRVVZhUm1ka2JHVklVbTVaV0hBd1RWSjNkMGRuV1VSV1VWRkVSWGhPVlZVeGNFWlRWVFZYVkRCc1JGSlRNVlJrVjBwRVVWTXdlRTFDTkZoRVZFbDVUVVJOZVU5RVJURk9SRmw2VFd4dldFUlVTWGxOUkUxNlRVUkZNVTVFV1hwTmJHOTNWRlJGVEUxQmEwZEJNVlZGUW1oTlExVXdSWGhFYWtGTlFtZE9Wa0pCYjFSQ1ZYQm9ZMjFzZVUxU2IzZEhRVmxFVmxGUlRFVjRSa3RhVjFKcldWZG5aMUZ1U21oaWJVNXZUVlJKZWs1RVJWTk5Ra0ZIUVRGVlJVRjRUVXBOVkVrelRHcEJkVTFETkhoTlJsbDNSVUZaU0V0dldrbDZhakJEUVZGWlJrczBSVVZCUVc5RVVXZEJSVVF2ZDJJeWJHaENka0pKUXpoRGJtNWFkbTkxYnpaUGVsSjViWGx0VlRsT1YxSm9TWGxoVFdoSFVrVkNRMFZhUWpSRlFWWnlRblZXTW5oWWFYaFpOSEZDV1dZNVpHUmxjbnByVnpsRWQyUnZNMGxzU0dkeFQwTkJhVzkzWjJkSmJVMUpSMHhDWjA1V1NGSkZSV2RaVFhkbldVTnJabXBDT0UxU2QzZEhaMWxFVmxGUlJVUkNUWGxOYWtsNVRXcE5lVTVFVVRCTmVsRjZZVzFhYlU1RVRYbE5VamgzU0ZGWlMwTmFTVzFwV2xCNVRFZFJRa0ZSZDFCTmVrVjNUVlJqTVUxNmF6Tk9SRUYzVFVSQmVrMVJNSGREZDFsRVZsRlJUVVJCVVhoTlJFVjRUVkpGZDBSM1dVUldVVkZoUkVGb1ZGbFhNWGRpUjFWblVsUkZXazFDWTBkQk1WVkZSSGQzVVZVeVJuUmpSM2hzU1VWS01XTXpUbkJpYlZaNlkzcEJaRUpuVGxaSVVUUkZSbWRSVldoWFkzTmlZa3BvYWtRMVdsZFBhM2RDU1V4REszZE9WbVpMV1hkSWQxbEVWbEl3YWtKQ1ozZEdiMEZWWkcxRFRTdDNZV2R5UjJSWVRsb3pVRzF4ZVc1TE5Xc3hkRk00ZDFSbldVUldVakJtUWtWamQxSlVRa1J2UlVkblVEUlpPV0ZJVWpCalJHOTJURE5TZW1SSFRubGlRelUyV1ZoU2FsbFROVzVpTTFsMVl6SkZkbEV5Vm5sa1JWWjFZMjA1YzJKRE9WVlZNWEJHVTFVMVYxUXdiRVJTVXpGVVpGZEtSRkZUTUhoTWJVNTVZa1JEUW5KUldVbExkMWxDUWxGVlNFRlJSVVZuWVVGM1oxb3dkMkpuV1VsTGQxbENRbEZWU0UxQlIwZFpiV2d3WkVoQk5reDVPVEJqTTFKcVkyMTNkV1Z0UmpCWk1rVjFXakk1TWt4dVRtaE1NRTVzWTI1U1JtSnVTblppUjNkMlZrWk9ZVkpYYkhWa2JUbHdXVEpXVkZFd1JYaE1iVlkwWkVka2FHVnVVWFZhTWpreVRHMTRkbGt5Um5OWU1WSlVWMnRXU2xSc1dsQlRWVTVHVEZaT01WbHJUa0pNVkVWdlRWTnJkVmt6U2pCTlEzTkhRME56UjBGUlZVWkNla0ZDYUdnNWIyUklVbmRQYVRoMlpFaE9NRmt6U25OTWJuQm9aRWRPYUV4dFpIWmthVFY2V1ZNNWRsa3pUbmROUVRSSFFURlZaRVIzUlVJdmQxRkZRWGRKU0dkRVFXUkNaMDVXU0ZOVlJVWnFRVlZDWjJkeVFtZEZSa0pSWTBSQloxbEpTM2RaUWtKUlZVaEJkMDEzU25kWlNrdDNXVUpDUVVkRFRuaFZTMEpDYjNkSFJFRkxRbWRuY2tKblJVWkNVV05FUVdwQlMwSm5aM0pDWjBWR1FsRmpSRUY2UVV0Q1oyZHhhR3RxVDFCUlVVUkJaMDVLUVVSQ1IwRnBSVUY1VG1oNVkxRXpZazVzVEVaa1QxQnNjVmxVTmxKV1VWUlhaMjVMTVVkb01FNUlaR05UV1RSUVprTXdRMGxSUTFOQmRHaFlkblkzZEdWMFZVdzJPVmRxY0RoQ2VHNU1URTEzWlhKNFdtaENibVYzYnk5blJqTkZTa0U5UFE9PTpmOVlSaG9wTi9HN3gwVEVDT1k2bktTQ0hMTllsYjVyaUFIU0ZQSUNvNHF3PQ==" ,
+                    # 'Authorization': "Basic VFVsSlJESjZRME5CTkVOblFYZEpRa0ZuU1ZSaWQwRkJaSEZFYlVsb2NYTnFjRzAxUTNkQlFrRkJRakp2UkVGTFFtZG5jV2hyYWs5UVVWRkVRV3BDYWsxU1ZYZEZkMWxMUTFwSmJXbGFVSGxNUjFGQ1IxSlpSbUpIT1dwWlYzZDRSWHBCVWtKbmIwcHJhV0ZLYXk5SmMxcEJSVnBHWjA1dVlqTlplRVo2UVZaQ1oyOUthMmxoU21zdlNYTmFRVVZhUm1ka2JHVklVbTVaV0hBd1RWSjNkMGRuV1VSV1VWRkVSWGhPVlZVeGNFWlRWVFZYVkRCc1JGSlRNVlJrVjBwRVVWTXdlRTFDTkZoRVZFbDVUVVJOZVU5RVJURk9SRmw2VFd4dldFUlVTWGxOUkUxNlRVUkZNVTVFV1hwTmJHOTNWRlJGVEUxQmEwZEJNVlZGUW1oTlExVXdSWGhFYWtGTlFtZE9Wa0pCYjFSQ1ZYQm9ZMjFzZVUxU2IzZEhRVmxFVmxGUlRFVjRSa3RhVjFKcldWZG5aMUZ1U21oaWJVNXZUVlJKZWs1RVJWTk5Ra0ZIUVRGVlJVRjRUVXBOVkVrelRHcEJkVTFETkhoTlJsbDNSVUZaU0V0dldrbDZhakJEUVZGWlJrczBSVVZCUVc5RVVXZEJSVVF2ZDJJeWJHaENka0pKUXpoRGJtNWFkbTkxYnpaUGVsSjViWGx0VlRsT1YxSm9TWGxoVFdoSFVrVkNRMFZhUWpSRlFWWnlRblZXTW5oWWFYaFpOSEZDV1dZNVpHUmxjbnByVnpsRWQyUnZNMGxzU0dkeFQwTkJhVzkzWjJkSmJVMUpSMHhDWjA1V1NGSkZSV2RaVFhkbldVTnJabXBDT0UxU2QzZEhaMWxFVmxGUlJVUkNUWGxOYWtsNVRXcE5lVTVFVVRCTmVsRjZZVzFhYlU1RVRYbE5VamgzU0ZGWlMwTmFTVzFwV2xCNVRFZFJRa0ZSZDFCTmVrVjNUVlJqTVUxNmF6Tk9SRUYzVFVSQmVrMVJNSGREZDFsRVZsRlJUVVJCVVhoTlJFVjRUVkpGZDBSM1dVUldVVkZoUkVGb1ZGbFhNWGRpUjFWblVsUkZXazFDWTBkQk1WVkZSSGQzVVZVeVJuUmpSM2hzU1VWS01XTXpUbkJpYlZaNlkzcEJaRUpuVGxaSVVUUkZSbWRSVldoWFkzTmlZa3BvYWtRMVdsZFBhM2RDU1V4REszZE9WbVpMV1hkSWQxbEVWbEl3YWtKQ1ozZEdiMEZWWkcxRFRTdDNZV2R5UjJSWVRsb3pVRzF4ZVc1TE5Xc3hkRk00ZDFSbldVUldVakJtUWtWamQxSlVRa1J2UlVkblVEUlpPV0ZJVWpCalJHOTJURE5TZW1SSFRubGlRelUyV1ZoU2FsbFROVzVpTTFsMVl6SkZkbEV5Vm5sa1JWWjFZMjA1YzJKRE9WVlZNWEJHVTFVMVYxUXdiRVJTVXpGVVpGZEtSRkZUTUhoTWJVNTVZa1JEUW5KUldVbExkMWxDUWxGVlNFRlJSVVZuWVVGM1oxb3dkMkpuV1VsTGQxbENRbEZWU0UxQlIwZFpiV2d3WkVoQk5reDVPVEJqTTFKcVkyMTNkV1Z0UmpCWk1rVjFXakk1TWt4dVRtaE1NRTVzWTI1U1JtSnVTblppUjNkMlZrWk9ZVkpYYkhWa2JUbHdXVEpXVkZFd1JYaE1iVlkwWkVka2FHVnVVWFZhTWpreVRHMTRkbGt5Um5OWU1WSlVWMnRXU2xSc1dsQlRWVTVHVEZaT01WbHJUa0pNVkVWdlRWTnJkVmt6U2pCTlEzTkhRME56UjBGUlZVWkNla0ZDYUdnNWIyUklVbmRQYVRoMlpFaE9NRmt6U25OTWJuQm9aRWRPYUV4dFpIWmthVFY2V1ZNNWRsa3pUbmROUVRSSFFURlZaRVIzUlVJdmQxRkZRWGRKU0dkRVFXUkNaMDVXU0ZOVlJVWnFRVlZDWjJkeVFtZEZSa0pSWTBSQloxbEpTM2RaUWtKUlZVaEJkMDEzU25kWlNrdDNXVUpDUVVkRFRuaFZTMEpDYjNkSFJFRkxRbWRuY2tKblJVWkNVV05FUVdwQlMwSm5aM0pDWjBWR1FsRmpSRUY2UVV0Q1oyZHhhR3RxVDFCUlVVUkJaMDVLUVVSQ1IwRnBSVUY1VG1oNVkxRXpZazVzVEVaa1QxQnNjVmxVTmxKV1VWUlhaMjVMTVVkb01FNUlaR05UV1RSUVprTXdRMGxSUTFOQmRHaFlkblkzZEdWMFZVdzJPVmRxY0RoQ2VHNU1URTEzWlhKNFdtaENibVYzYnk5blJqTkZTa0U5UFE9PTpmOVlSaG9wTi9HN3gwVEVDT1k2bktTQ0hMTllsYjVyaUFIU0ZQSUNvNHF3PQ==",
+                    # 'Authorization': 'Basic' + settings.basic_auth_production,
+                    'Authorization': 'Basic' + production_csid,
+                    'Content-Type': 'application/json',
+                    'Cookie': 'TS0106293e=0132a679c0639d13d069bcba831384623a2ca6da47fac8d91bef610c47c7119dcdd3b817f963ec301682dae864351c67ee3a402866'
+                    }    
+        else:
+            frappe.throw("Production CSID for company {} not found".format(company_name))
+        try:
+            response = requests.request("POST", url=get_API_url(base_url="invoices/reporting/single"), headers=headers, data=payload)
+        
+            if response.status_code  in (400,405,406,409 ):
+                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number )
+                invoice_doc.db_set('custom_uuid' , 'Not Submitted' , commit=True  , update_modified=True)
+                invoice_doc.db_set('custom_zatca_status' , 'Not Submitted' , commit=True  , update_modified=True)
 
-                                frappe.throw("Error: The request you are sending to Zatca is in incorrect format. Please report to system administrator . Status code:  " + str(response.status_code) + "<br><br> " + response.text )            
-                            
-                            
-                            if response.status_code  in (401,403,407,451 ):
-                                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number  )
-                                invoice_doc.db_set('custom_uuid' , 'Not Submitted' , commit=True  , update_modified=True)
-                                invoice_doc.db_set('custom_zatca_status' , 'Not Submitted' , commit=True  , update_modified=True)
+                frappe.throw("Error: The request you are sending to Zatca is in incorrect format. Please report to system administrator . Status code:  " + str(response.status_code) + "<br><br> " + response.text )            
+            
+            
+            if response.status_code  in (401,403,407,451 ):
+                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number  )
+                invoice_doc.db_set('custom_uuid' , 'Not Submitted' , commit=True  , update_modified=True)
+                invoice_doc.db_set('custom_zatca_status' , 'Not Submitted' , commit=True  , update_modified=True)
 
-                              
-                                frappe.throw("Error: Zatca Authentication failed. Your access token may be expired or not valid. Please contact your system administrator. Status code:  " + str(response.status_code) + "<br><br> " + response.text)            
-                            
-                            if response.status_code not in (200, 202):
-                                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number  )
-                                invoice_doc.db_set('custom_uuid' , 'Not Submitted' , commit=True  , update_modified=True)
-                                invoice_doc.db_set('custom_zatca_status' , 'Not Submitted' , commit=True  , update_modified=True)
-                                
-                               
-                                frappe.throw("Error: Zatca server busy or not responding. Try after sometime or contact your system administrator. Status code:  " + str(response.status_code)+ "<br><br> " + response.text )
-                            
-                            
-                            if response.status_code  in (200, 202):
-                                if response.status_code == 202:
-                                    msg = "REPORTED WITH WARNIGS: <br> <br> Please copy the below message and send it to your system administrator to fix this warnings before next submission <br>  <br><br> "
-                                
-                                if response.status_code == 200:
-                                    msg = "SUCCESS: <br>   <br><br> "
-                                
-                                msg = msg + "Status Code: " + str(response.status_code) + "<br><br> "
-                                msg = msg + "Zatca Response: " + response.text + "<br><br> "
-                                frappe.msgprint(msg)
-                                pih_data = json.loads(settings.get("pih", "{}"))
-                                updated_pih_data = update_json_data_pih(pih_data, company_name, hash_value)
-                                settings.set("pih", json.dumps(updated_pih_data))
-                                settings.save(ignore_permissions=True)
-                                
-                                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number )
-                                invoice_doc.db_set('custom_uuid' , uuid1 , commit=True  , update_modified=True)
-                                invoice_doc.db_set('custom_zatca_status' , 'REPORTED' , commit=True  , update_modified=True)
+                
+                frappe.throw("Error: Zatca Authentication failed. Your access token may be expired or not valid. Please contact your system administrator. Status code:  " + str(response.status_code) + "<br><br> " + response.text)            
+            
+            if response.status_code not in (200, 202):
+                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number  )
+                invoice_doc.db_set('custom_uuid' , 'Not Submitted' , commit=True  , update_modified=True)
+                invoice_doc.db_set('custom_zatca_status' , 'Not Submitted' , commit=True  , update_modified=True)
+                
+                
+                frappe.throw("Error: Zatca server busy or not responding. Try after sometime or contact your system administrator. Status code:  " + str(response.status_code)+ "<br><br> " + response.text )
+            
+            
+            if response.status_code  in (200, 202):
+                if response.status_code == 202:
+                    msg = "REPORTED WITH WARNIGS: <br> <br> Please copy the below message and send it to your system administrator to fix this warnings before next submission <br>  <br><br> "
+                
+                if response.status_code == 200:
+                    msg = "SUCCESS: <br>   <br><br> "
+                
+                msg = msg + "Status Code: " + str(response.status_code) + "<br><br> "
+                msg = msg + "Zatca Response: " + response.text + "<br><br> "
+                frappe.msgprint(msg)
+                pih_data = json.loads(settings.get("pih", "{}"))
+                updated_pih_data = update_json_data_pih(pih_data, company_name, hash_value)
+                settings.set("pih", json.dumps(updated_pih_data))
+                settings.save(ignore_permissions=True)
+                
+                invoice_doc = frappe.get_doc('Sales Invoice' , invoice_number )
+                invoice_doc.db_set('custom_uuid' , uuid1 , commit=True  , update_modified=True)
+                invoice_doc.db_set('custom_zatca_status' , 'REPORTED' , commit=True  , update_modified=True)
 
-                               
-                                # frappe.msgprint(xml_cleared)
-                                success_Log(response.text,uuid1, invoice_number)
-                                
-                            else:
-                                error_Log()
-                        except Exception as e:
-                            frappe.throw("Error in reporting api-2:  " + str(e) )
-    
-                    except Exception as e:
-                        frappe.throw("Error in reporting api-1:  " + str(e) )
+                
+                # frappe.msgprint(xml_cleared)
+                success_Log(response.text,uuid1, invoice_number)
+                
+            else:
+                error_Log()
+        except Exception as e:
+            frappe.throw("Error in reporting api-2:  " + str(e) )
+
+    except Exception as e:
+        frappe.throw("Error in reporting api-1:  " + str(e) )
 
 def clearance_API(uuid1,hash_value,signed_xmlfile_name,invoice_number,sales_invoice_doc):
     try:
@@ -724,91 +726,91 @@ def clearance_API(uuid1,hash_value,signed_xmlfile_name,invoice_number,sales_invo
         frappe.throw("error in clearance api:  " + str(e) )
 
 def qrcode_From_Clearedxml(xml_cleared):
-                    try:
-                        # frappe.msgprint("QR code from cleared xml" + str(xml_cleared))
-                        root = ET.fromstring(xml_cleared)
-                        qr_element = root.find(".//cac:AdditionalDocumentReference[cbc:ID='QR']/cac:Attachment/cbc:EmbeddedDocumentBinaryObject", namespaces={'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2', 'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'})
-                        qr_code_text = qr_element.text
-                        return qr_code_text
-                    except Exception as e:
-                        frappe.throw("error in qrcode from cleared xml:  " + str(e) )
+    try:
+        # frappe.msgprint("QR code from cleared xml" + str(xml_cleared))
+        root = ET.fromstring(xml_cleared)
+        qr_element = root.find(".//cac:AdditionalDocumentReference[cbc:ID='QR']/cac:Attachment/cbc:EmbeddedDocumentBinaryObject", namespaces={'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2', 'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'})
+        qr_code_text = qr_element.text
+        return qr_code_text
+    except Exception as e:
+        frappe.throw("error in qrcode from cleared xml:  " + str(e) )
 
 def attach_QR_Image_For_Clearance(xml_cleared,sales_invoice_doc):
-                    try:
-                        # frappe.throw(xml_cleared)
-                        qr_code_text=qrcode_From_Clearedxml(xml_cleared)
-                        # frappe.throw("qr_code_text: " + str(qr_code_text))
-                        qr = pyqrcode.create(qr_code_text)
-                        temp_file_path = "qr_code.png"
-                        qr_image=qr.png(temp_file_path, scale=5)
-                        file = frappe.get_doc({
-                            "doctype": "File",
-                            "file_name": f"QR_image_{sales_invoice_doc.name}.png",
-                            "attached_to_doctype": sales_invoice_doc.doctype,
-                            "attached_to_name": sales_invoice_doc.name,
-                            "content": open(temp_file_path, "rb").read()
-                           
-                        })
-                        file.save(ignore_permissions=True)
-                    except Exception as e:
-                        frappe.throw("error in qrcode from cleared xml:  " + str(e) )
+    try:
+        # frappe.throw(xml_cleared)
+        qr_code_text=qrcode_From_Clearedxml(xml_cleared)
+        # frappe.throw("qr_code_text: " + str(qr_code_text))
+        qr = pyqrcode.create(qr_code_text)
+        temp_file_path = "qr_code.png"
+        qr_image=qr.png(temp_file_path, scale=5)
+        file = frappe.get_doc({
+            "doctype": "File",
+            "file_name": f"QR_image_{sales_invoice_doc.name}.png",
+            "attached_to_doctype": sales_invoice_doc.doctype,
+            "attached_to_name": sales_invoice_doc.name,
+            "content": open(temp_file_path, "rb").read()
+            
+        })
+        file.save(ignore_permissions=True)
+    except Exception as e:
+        frappe.throw("error in qrcode from cleared xml:  " + str(e) )
 
 
 @frappe.whitelist(allow_guest=True) 
 def zatca_Call(invoice_number, compliance_type="0"):
-                    compliance_type = "0"
-                    try:    
-                            # create_compliance_x509()
-                            # frappe.throw("Created compliance x509 certificate")
-                            
-                            if not frappe.db.exists("Sales Invoice", invoice_number):
-                                frappe.throw("Invoice Number is NOT Valid:  " + str(invoice_number))
-                            
-                            
-                            invoice= xml_tags()
-                            invoice,uuid1,sales_invoice_doc=salesinvoice_data(invoice,invoice_number)
-                            
-                            customer_doc= frappe.get_doc("Customer",sales_invoice_doc.customer)
-                            
-                            
-                            if compliance_type == "0":
-                                    # frappe.throw(str("here 7 " + str(compliance_type))) 
-                                    if customer_doc.custom_b2c == 1:
-                                        invoice = invoice_Typecode_Simplified(invoice, sales_invoice_doc)
-                                    else:
-                                        invoice = invoice_Typecode_Standard(invoice, sales_invoice_doc)
-                            else:  # if it a compliance test
-                                # frappe.throw(str("here 8 " + str(compliance_type))) 
-                                invoice = invoice_Typecode_Compliance(invoice, compliance_type)
-                            
-                            invoice=doc_Reference(invoice,sales_invoice_doc,invoice_number)
-                            invoice=additional_Reference(invoice)
-                            invoice=company_Data(invoice,sales_invoice_doc)
-                            invoice=customer_Data(invoice,sales_invoice_doc)
-                            invoice=delivery_And_PaymentMeans(invoice,sales_invoice_doc, sales_invoice_doc.is_return) 
-                            invoice=tax_Data(invoice,sales_invoice_doc)
-                            invoice=item_data(invoice,sales_invoice_doc)
-                            pretty_xml_string=xml_structuring(invoice,sales_invoice_doc)
-                            signed_xmlfile_name,path_string=sign_invoice()
-                            qr_code_value=generate_qr_code(signed_xmlfile_name,sales_invoice_doc,path_string)
-                            hash_value =generate_hash(signed_xmlfile_name,path_string)
-                            # validate_invoice(signed_xmlfile_name,path_string)
-                            # frappe.msgprint("validated and stopped it here")
-                            # result,clearance_status=send_invoice_for_clearance_normal(uuid1,signed_xmlfile_name,hash_value)
-                            
-                            if compliance_type == "0":
-                                if customer_doc.custom_b2c == 1:
-                                    reporting_API(uuid1, hash_value, signed_xmlfile_name,invoice_number,sales_invoice_doc)
-                                    attach_QR_Image_For_Reporting(qr_code_value,sales_invoice_doc)
-                                else:
-                                    
-                                    xml_cleared=clearance_API(uuid1, hash_value, signed_xmlfile_name,invoice_number,sales_invoice_doc)
-                                    attach_QR_Image_For_Clearance(xml_cleared,sales_invoice_doc)
-                            else:  # if it a compliance test
-                                # frappe.msgprint("Compliance test")
-                                compliance_api_call(uuid1, hash_value, signed_xmlfile_name)
-                    except:       
-                            frappe.log_error(title='Zatca invoice call failed', message=frappe.get_traceback())
+    compliance_type = "0"
+    try:    
+            # create_compliance_x509()
+            # frappe.throw("Created compliance x509 certificate")
+            
+            if not frappe.db.exists("Sales Invoice", invoice_number):
+                frappe.throw("Invoice Number is NOT Valid:  " + str(invoice_number))
+            
+            
+            invoice= xml_tags()
+            invoice,uuid1,sales_invoice_doc=salesinvoice_data(invoice,invoice_number)
+            
+            customer_doc= frappe.get_doc("Customer",sales_invoice_doc.customer)
+            
+            
+            if compliance_type == "0":
+                    # frappe.throw(str("here 7 " + str(compliance_type))) 
+                    if customer_doc.custom_b2c == 1:
+                        invoice = invoice_Typecode_Simplified(invoice, sales_invoice_doc)
+                    else:
+                        invoice = invoice_Typecode_Standard(invoice, sales_invoice_doc)
+            else:  # if it a compliance test
+                # frappe.throw(str("here 8 " + str(compliance_type))) 
+                invoice = invoice_Typecode_Compliance(invoice, compliance_type)
+            
+            invoice=doc_Reference(invoice,sales_invoice_doc,invoice_number)
+            invoice=additional_Reference(invoice)
+            invoice=company_Data(invoice,sales_invoice_doc)
+            invoice=customer_Data(invoice,sales_invoice_doc)
+            invoice=delivery_And_PaymentMeans(invoice,sales_invoice_doc, sales_invoice_doc.is_return) 
+            invoice=tax_Data(invoice,sales_invoice_doc)
+            invoice=item_data(invoice,sales_invoice_doc)
+            pretty_xml_string=xml_structuring(invoice,sales_invoice_doc)
+            signed_xmlfile_name,path_string=sign_invoice()
+            qr_code_value=generate_qr_code(signed_xmlfile_name,sales_invoice_doc,path_string)
+            hash_value =generate_hash(signed_xmlfile_name,path_string)
+            # validate_invoice(signed_xmlfile_name,path_string)
+            # frappe.msgprint("validated and stopped it here")
+            # result,clearance_status=send_invoice_for_clearance_normal(uuid1,signed_xmlfile_name,hash_value)
+            
+            if compliance_type == "0":
+                if customer_doc.custom_b2c == 1:
+                    reporting_API(uuid1, hash_value, signed_xmlfile_name,invoice_number,sales_invoice_doc)
+                    attach_QR_Image_For_Reporting(qr_code_value,sales_invoice_doc)
+                else:
+                    
+                    xml_cleared=clearance_API(uuid1, hash_value, signed_xmlfile_name,invoice_number,sales_invoice_doc)
+                    attach_QR_Image_For_Clearance(xml_cleared,sales_invoice_doc)
+            else:  # if it a compliance test
+                # frappe.msgprint("Compliance test")
+                compliance_api_call(uuid1, hash_value, signed_xmlfile_name)
+    except:       
+        frappe.log_error(title='Zatca invoice call failed', message=frappe.get_traceback())
                             
 @frappe.whitelist(allow_guest=True) 
 def zatca_Call_compliance(invoice_number, compliance_type="0"):
@@ -914,29 +916,33 @@ def zatca_Background(invoice_number):
 def zatca_Background_on_submit(doc, method=None):              
 # def zatca_Background(invoice_number):
                     
-                    try:
-                        sales_invoice_doc = doc
-                        invoice_number = sales_invoice_doc.name
-                        settings = frappe.get_doc('Zatca setting')
-                        
-                        if settings.zatca_invoice_enabled != 1:
-                            frappe.throw("Zatca Invoice is not enabled in Zatca Settings, Please contact your system administrator")
-                        
-                        if not frappe.db.exists("Sales Invoice", invoice_number):
-                                frappe.throw("Please save and submit the invoice before sending to Zatca:  " + str(invoice_number))
-                                
-                        sales_invoice_doc= frappe.get_doc("Sales Invoice",invoice_number )
+    try:
+        sales_invoice_doc = doc
+        invoice_number = sales_invoice_doc.name
+        settings = frappe.get_doc('Zatca setting')
+        sales_invoice_doc = frappe.get_doc("Sales Invoice", invoice_number)
+        
+        if settings.zatca_invoice_enabled != 1:
+            frappe.throw("Zatca Invoice is not enabled in Zatca Settings, Please contact your system administrator")
+        
+        if not frappe.db.exists("Sales Invoice", invoice_number):
+            frappe.throw("Please save and submit the invoice before sending to Zatca:  " + str(invoice_number))
+                
+
+        if sales_invoice_doc.docstatus in [0,2]:
+            frappe.throw("Please submit the invoice before sending to Zatca:  " + str(invoice_number))
             
-                        if sales_invoice_doc.docstatus in [0,2]:
-                            frappe.throw("Please submit the invoice before sending to Zatca:  " + str(invoice_number))
-                            
-                        if sales_invoice_doc.custom_zatca_status == "REPORTED" or sales_invoice_doc.custom_zatca_status == "CLEARED":
-                            frappe.throw("Already submitted to Zakat and Tax Authority")
-                        
-                        zatca_Call(invoice_number,0)
-                        
-                    except Exception as e:
-                        frappe.throw("Error in background call:  " + str(e) )
+        if sales_invoice_doc.custom_zatca_status == "REPORTED" or sales_invoice_doc.custom_zatca_status == "CLEARED":
+            frappe.throw("Already submitted to Zakat and Tax Authority")
+        
+        match_company = [val for val in settings.integration_setting if val.company == sales_invoice_doc.company]
+
+        if len(match_company) > 0:
+            if sales_invoice_doc.posting_date >= match_company[0].integration_date:
+                zatca_Call(invoice_number,0)
+        
+    except Exception as e:
+        frappe.throw("Error in background call:  " + str(e) )
                     
 # #                     # frappe.enqueue(
 #                     #         zatca_Call,
