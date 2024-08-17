@@ -87,7 +87,7 @@ def generate_csr():
         private_key_file = f'$SDK_ROOT/{company_name}-privatekey.pem'
         generated_csr_file = '$SDK_ROOT/sdkcsr.pem'
         SDK_ROOT = settings.sdk_root
-        sdk_config_file = f'$SDK_ROOT/{company_name}.json'
+        sdk_config_file = f'$SDK_ROOT/global_sdk_config.json'
 
         path_string = f"export SDK_ROOT={SDK_ROOT} && export FATOORA_HOME=$SDK_ROOT/Apps && export SDK_CONFIG={sdk_config_file} && export PATH=$PATH:$FATOORA_HOME &&  "
         if settings.select == "Simulation":
@@ -386,7 +386,7 @@ def compliance_api_call(uuid1,hash_value, signed_xmlfile_name ):
             }
         else:
             frappe.throw("CSID for company {} not found".format(company_name))
-        print(get_API_url(base_url="compliance/invoices"), payload, "Values check \n\n\n")
+        # print(get_API_url(base_url="compliance/invoices"), payload, "Values check \n\n\n")
         try:
             # frappe.throw("inside compliance api call2")
             response = requests.request("POST", url=get_API_url(base_url="compliance/invoices"), headers=headers, data=payload)

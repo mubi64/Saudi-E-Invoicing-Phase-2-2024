@@ -318,7 +318,7 @@ def company_Data(invoice,sales_invoice_doc):
                 cac_PartyIdentification = ET.SubElement(cac_Party_1, "cac:PartyIdentification")
                 cbc_ID_2 = ET.SubElement(cac_PartyIdentification, "cbc:ID")
                 cbc_ID_2.set("schemeID", "CRN")
-                cbc_ID_2.text =company_doc.tax_id   # COmpany CR - Need to have a field in company doctype called company_registration 
+                cbc_ID_2.text =company_doc.custom_company_registration   # COmpany CR - Need to have a field in company doctype called company_registration 
                 address_list = frappe.get_list("Address", filters={"is_your_company_address": "1"}, fields=["address_line1", "address_line2","city","pincode","state"])
                 if len(address_list) == 0:
                     frappe.throw("Zatca requires proper address. Please add your company address in address master")
@@ -363,7 +363,7 @@ def customer_Data(invoice,sales_invoice_doc):
                 cac_PartyIdentification_1 = ET.SubElement(cac_Party_2, "cac:PartyIdentification")
                 cbc_ID_4 = ET.SubElement(cac_PartyIdentification_1, "cbc:ID")
                 cbc_ID_4.set("schemeID", "CRN")
-                cbc_ID_4.text =customer_doc.tax_id
+                cbc_ID_4.text =customer_doc.custom_company_registration
                 if int(frappe.__version__.split('.')[0]) == 15:
                     address = frappe.get_doc("Address", customer_doc.customer_primary_address)    
                 else:
@@ -390,6 +390,8 @@ def customer_Data(invoice,sales_invoice_doc):
                 cbc_IdentificationCode_1 = ET.SubElement(cac_Country_1, "cbc:IdentificationCode")
                 cbc_IdentificationCode_1.text = "SA" 
                 cac_PartyTaxScheme_1 = ET.SubElement(cac_Party_2, "cac:PartyTaxScheme")
+                cbc_CompanyID_1 = ET.SubElement(cac_PartyTaxScheme_1, "cbc:CompanyID")
+                cbc_CompanyID_1.text = customer_doc.tax_id
                 cac_TaxScheme_1 = ET.SubElement(cac_PartyTaxScheme_1, "cac:TaxScheme")
                 cbc_ID_5 = ET.SubElement(cac_TaxScheme_1, "cbc:ID")
                 cbc_ID_5.text = "VAT"
