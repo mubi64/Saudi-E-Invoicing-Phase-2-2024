@@ -363,7 +363,7 @@ def customer_Data(invoice,sales_invoice_doc):
                 cac_PartyIdentification_1 = ET.SubElement(cac_Party_2, "cac:PartyIdentification")
                 cbc_ID_4 = ET.SubElement(cac_PartyIdentification_1, "cbc:ID")
                 cbc_ID_4.set("schemeID", "CRN")
-                cbc_ID_4.text =customer_doc.custom_company_registration
+                cbc_ID_4.text =customer_doc.tax_id
                 if int(frappe.__version__.split('.')[0]) == 15:
                     address = frappe.get_doc("Address", customer_doc.customer_primary_address)    
                 else:
@@ -390,8 +390,6 @@ def customer_Data(invoice,sales_invoice_doc):
                 cbc_IdentificationCode_1 = ET.SubElement(cac_Country_1, "cbc:IdentificationCode")
                 cbc_IdentificationCode_1.text = "SA" 
                 cac_PartyTaxScheme_1 = ET.SubElement(cac_Party_2, "cac:PartyTaxScheme")
-                cbc_CompanyID_1 = ET.SubElement(cac_PartyTaxScheme_1, "cbc:CompanyID")
-                cbc_CompanyID_1.text = customer_doc.tax_id
                 cac_TaxScheme_1 = ET.SubElement(cac_PartyTaxScheme_1, "cac:TaxScheme")
                 cbc_ID_5 = ET.SubElement(cac_TaxScheme_1, "cbc:ID")
                 cbc_ID_5.text = "VAT"
@@ -569,44 +567,45 @@ def item_data(invoice,sales_invoice_doc):
                     frappe.throw("error occured in item data"+ str(e) )
 
 def xml_structuring(invoice,sales_invoice_doc):
-            try:
+    try:
 
-                zatca_setting = frappe.get_doc("Zatca setting")
-                xml_declaration = "<?xml version='1.0' encoding='UTF-8'?>\n"
-                tree = ET.ElementTree(invoice)
-                with open(f"xml_files.xml", 'wb') as file:
-                    tree.write(file, encoding='utf-8', xml_declaration=True)
-                with open(f"xml_files.xml", 'r') as file:
-                    xml_string = file.read()
-                xml_dom = minidom.parseString(xml_string)
-                pretty_xml_string = xml_dom.toprettyxml(indent="  ")   # created xml into formatted xml form 
-                
-                file_path = os.path.join(str(zatca_setting.sdk_root), f"finalzatcaxml.xml")
-                with open(file_path, 'w') as file:
-                    file.write(pretty_xml_string)
-                # Attach the getting xml for each invoice
-                try:
-                    if frappe.db.exists("File",{ "attached_to_name": sales_invoice_doc.name, "attached_to_doctype": sales_invoice_doc.doctype }):
-                        frappe.db.delete("File",{ "attached_to_name":sales_invoice_doc.name, "attached_to_doctype": sales_invoice_doc.doctype })
-                except Exception as e:
-                    frappe.throw(frappe.get_traceback())
-                
-                try:
-                    fileX = frappe.get_doc(
-                        {   "doctype": "File",        
-                            "file_type": "xml",  
-                            "file_name":  "E-invoice-" + sales_invoice_doc.name + ".xml",
-                            "attached_to_doctype":sales_invoice_doc.doctype,
-                            "attached_to_name":sales_invoice_doc.name, 
-                            "content": pretty_xml_string,
-                            "is_private": 1,})
-                    fileX.save()
-                except Exception as e:
-                    frappe.throw(frappe.get_traceback())
-                
-                try:
-                    frappe.db.get_value('File', {'attached_to_name':sales_invoice_doc.name, 'attached_to_doctype': sales_invoice_doc.doctype}, ['file_name'])
-                except Exception as e:
-                    frappe.throw(frappe.get_traceback())
-            except Exception as e:
-                    frappe.throw("Error occured in XML structuring and attach. Please contact your system administrator"+ str(e) )
+        zatca_setting = frappe.get_doc("Zatca setting")
+        xml_declaration = "<?xml version='1.0' encoding='UTF-8'?>\n"
+        tree = ET.ElementTree(invoice)
+        print("invoice",invoice, "tree", tree, "\n\n\n\n\n\n\n")
+        with open(f"xml_files.xml", 'wb') as file:
+            tree.write(file, encoding='utf-8', xml_declaration=True)
+        with open(f"xml_files.xml", 'r') as file:
+            xml_string = file.read()
+        xml_dom = minidom.parseString(xml_string)
+        pretty_xml_string = xml_dom.toprettyxml(indent="  ")   # created xml into formatted xml form 
+        
+        file_path = os.path.join(str(zatca_setting.sdk_root), f"finalzatcaxml.xml")
+        with open(file_path, 'w') as file:
+            file.write(pretty_xml_string)
+        # Attach the getting xml for each invoice
+        try:
+            if frappe.db.exists("File",{ "attached_to_name": sales_invoice_doc.name, "attached_to_doctype": sales_invoice_doc.doctype }):
+                frappe.db.delete("File",{ "attached_to_name":sales_invoice_doc.name, "attached_to_doctype": sales_invoice_doc.doctype })
+        except Exception as e:
+            frappe.throw(frappe.get_traceback())
+        
+        try:
+            fileX = frappe.get_doc(
+                {   "doctype": "File",        
+                    "file_type": "xml",  
+                    "file_name":  "E-invoice-" + sales_invoice_doc.name + ".xml",
+                    "attached_to_doctype":sales_invoice_doc.doctype,
+                    "attached_to_name":sales_invoice_doc.name, 
+                    "content": pretty_xml_string,
+                    "is_private": 1,})
+            fileX.save()
+        except Exception as e:
+            frappe.throw(frappe.get_traceback())
+        
+        try:
+            frappe.db.get_value('File', {'attached_to_name':sales_invoice_doc.name, 'attached_to_doctype': sales_invoice_doc.doctype}, ['file_name'])
+        except Exception as e:
+            frappe.throw(frappe.get_traceback())
+    except Exception as e:
+            frappe.throw("Error occured in XML structuring and attach. Please contact your system administrator"+ str(e) )
